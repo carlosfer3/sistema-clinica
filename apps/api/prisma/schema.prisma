@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// ENUMS
+// -------------------------------------------------------------
+enum RolUsuario {
+  admision
+  medico
+  enfermeria
+  laboratorio
+  cajero
+  gerencia
+  paciente
+}
+
+enum EstadoCita {
+  programada
+  confirmada
+  reprogramada
+  cancelada
+  atendida
+  no_asistio
+}
+
+enum CanalOrigen {
+  presencial
+  telefono
+  portal
+}
+
+enum ModalidadCita {
+  presencial
+  virtual
+}
+
+enum EstadoConsulta {
+  activo
+  anulado
+}
+
+// -------------------------------------------------------------
+// MODELOS PRINCIPALES
+// -------------------------------------------------------------
+
+model Usuario {
+  id            Int         @id @default(autoincrement())
+  rol           RolUsuario
+  username      String      @unique @db.VarChar(50)
+  passwordHash  String      @map("password_hash") @db.VarChar(255)
+  nombres       String      @db.VarChar(100)
+  apellidos     String      @db.VarChar(100)
+  activo        Boolean     @default(true)
+  creadoEn      DateTime    @default(now()) @map("creado_en") @db.Timestamptz
+
+  paciente      Paciente?
+  medico        Medico?
+  citasCreadas  Cita[]      @relation("CitaCreadaPor")
+  consultasAnuladas Consulta[] @relation("ConsultaAnuladaPor")
+  auditorias    BitacoraAuditoria[]
+
+  @@map("usuario")
+}
+
+model Paciente {
+  id              Int       @id @default(autoincrement())
+  usuarioId       Int       @unique @map("usuario_id")
+  tipoDocumento   String    @map("tipo_documento") @db.VarChar(12) // DNI, CE, PASAPORTE
+  numeroDocumento String    @map("numero_documento") @db.VarChar(15)
+  fechaNacimiento DateTime  @map("fecha_nacimiento") @db.Date
+  sexo            String    @db.Char(1)
+  telefono        String    @db.VarChar(20)
+  correo          String    @db.VarChar(120)
+  direccion       String?   @db.VarChar(200)
+
+  usuario         Usuario   @relation(fields: [usuarioId], references: [id])
+  citas           Cita[]
+  consultas       Consulta[]
+
+  @@unique([tipoDocumento, numeroDocumento])
+  @@index([numeroDocumento])
+  @@map("paciente")
+}
+
+model Especialidad {
+  id          Int      @id @default(autoincrement()) @db.SmallInt
+  nombre      String   @unique @db.VarChar(100)
+  descripcion String?  @db.VarChar(255)
+  medicos     Medico[]
+
+  @@map("especialidad")
+}
+
+model Medico {
+  id             Int          @id @default(autoincrement())
+  usuarioId      Int          @unique @map("usuario_id")
+  especialidadId Int          @map("especialidad_id") @db.SmallInt
+  cmp            String       @unique @db.VarChar(10) // Código Colegio Médico
+
+  usuario        Usuario      @relation(fields: [usuarioId], references: [id])
+  especialidad   Especialidad @relation(fields: [especialidadId], references: [id])
+  citas          Cita[]
+  consultas      Consulta[]
+
+  @@map("medico")
+}
+
+model Cita {
+  id               Int           @id @default(autoincrement())
+  pacienteId       Int           @map("paciente_id")
+  medicoId         Int           @map("medico_id")
+  fechaHoraInicio  DateTime      @map("fecha_hora_inicio") @db.Timestamptz
+  fechaHoraFin     DateTime      @map("fecha_hora_fin") @db.Timestamptz
+  motivo           String?       @db.VarChar(300)
+  estado           EstadoCita    @default(programada)
+  canalOrigen      CanalOrigen   @default(presencial) @map("canal_origen")
+  modalidad        ModalidadCita @default(presencial)
+  enlaceVirtual    String?       @map("enlace_virtual") @db.VarChar(300)
+  llegadaEn        DateTime?     @map("llegada_en") @db.Timestamptz
+  creadoPor        Int           @map("creado_por")
+  creadoEn         DateTime      @default(now()) @map("creado_en") @db.Timestamptz
+
+  paciente         Paciente      @relation(fields: [pacienteId], references: [id])
+  medico           Medico        @relation(fields: [medicoId], references: [id])
+  creador          Usuario       @relation("CitaCreadaPor", fields: [creadoPor], references: [id])
+  consulta         Consulta?
+
+  @@index([medicoId, fechaHoraInicio])
+  @@map("cita")
+}
+
+model Consulta {
+  id               Int            @id @default(autoincrement())
+  pacienteId       Int            @map("paciente_id")
+  medicoId         Int            @map("medico_id")
+  citaId           Int?           @unique @map("cita_id")
+  fechaHora        DateTime       @default(now()) @map("fecha_hora") @db.Timestamptz
+  motivo           String         @db.VarChar(300)
+  indicaciones     String?        @db.Text
+  estado           EstadoConsulta @default(activo)
+  motivoAnulacion  String?        @map("motivo_anulacion") @db.VarChar(300)
+  anuladoPor       Int?           @map("anulado_por")
+  anuladoEn        DateTime?      @map("anulado_en") @db.Timestamptz
+
+  paciente         Paciente       @relation(fields: [pacienteId], references: [id])
+  medico           Medico         @relation(fields: [medicoId], references: [id])
+  cita             Cita?          @relation(fields: [citaId], references: [id])
+  usuarioAnulador  Usuario?       @relation("ConsultaAnuladaPor", fields: [anuladoPor], references: [id])
+
+  @@index([pacienteId, fechaHora])
+  @@map("consulta")
+}
+
+// Bitácora obligatoria por Ley N.° 29733 (HU17)
+model BitacoraAuditoria {
+  id         Int      @id @default(autoincrement())
+  usuarioId  Int?     @map("usuario_id")
+  accion     String   @db.VarChar(50)  // LOGIN, READ_HCE, CREATE_CITA, CANCEL_CITA, ANULAR_CONSULTA
+  recurso    String   @db.VarChar(100) // Endpoint o entidad afectada
+  detalles   String?  @db.Text
+  ipOrigen   String?  @map("ip_origen") @db.VarChar(45)
+  fechaHora  DateTime @default(now()) @map("fecha_hora") @db.Timestamptz
+
+  usuario    Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@map("bitacora_auditoria")
+}
