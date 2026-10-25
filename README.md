@@ -38,18 +38,18 @@ Integrar en un único sistema web la **Historia Clínica Electrónica (HCE)** un
 ```mermaid
 gantt
     title Cronograma de Hitos y Estado de Desarrollo
-    dateFormat  YYYY-MM-DD
-    section Entregable 1 (Ingeniería)
-    Semana 2 : Constitución y Visión               :done, w2, 2026-09-10, 2026-09-17
-    Semanas 3-4 : Requerimientos y Modelos UML       :done, w3, 2026-09-18, 2026-10-01
-    Semanas 5-6 : Arquitectura, BD y Prototipo UX/UI :done, w5, 2026-10-02, 2026-10-15
-    Semana 7 : Plan de Release y Sprint Backlog 1    :done, w7, 2026-10-16, 2026-10-23
-    Semana 8 : Examen Parcial (Sustentación E1)      :active, w8, 2026-10-24, 2026-10-31
-    section Sprint 1 (Código Real)
-    Semanas 9-11 : Implementación Núcleo M1 + M2     :w9, 2026-11-01, 2026-11-21
-    section Sprint 2 (Expansión)
-    Semanas 12-14 : Módulos M3, M4, M5 y M6          :w12, 2026-11-22, 2026-12-12
-    Semana 16 : Examen Final (Producto Funcional)    :w16, 2026-12-13, 2026-12-20
+    dateFormat YYYY-MM-DD
+    section Entregable 1 - Ingenieria
+    Semana 2 - Constitucion y Vision               :done, w2, 2026-09-10, 2026-09-17
+    Semanas 3-4 - Requerimientos y Modelos UML     :done, w3, 2026-09-18, 2026-10-01
+    Semanas 5-6 - Arquitectura y Prototipo UX-UI   :done, w5, 2026-10-02, 2026-10-15
+    Semana 7 - Plan de Release y Sprint Backlog 1  :done, w7, 2026-10-16, 2026-10-23
+    Semana 8 - Examen Parcial Sustentacion E1      :active, w8, 2026-10-24, 2026-10-31
+    section Sprint 1 - Codigo Real
+    Semanas 9-11 - Implementacion Nucleo M1 y M2   :w9, 2026-11-01, 2026-11-21
+    section Sprint 2 - Expansion
+    Semanas 12-14 - Modulos M3 M4 M5 y M6          :w12, 2026-11-22, 2026-12-12
+    Semana 16 - Examen Final                       :w16, 2026-12-13, 2026-12-20
 ```
 
 ### 📍 Fase Actual: **Transición de Ingeniería hacia Código Real (Sprint 1)**
