@@ -55,18 +55,14 @@ gantt
 ### 📍 Fase Actual: **Transición de Ingeniería hacia Código Real (Sprint 1)**
 Nos encontramos en el **cierre del Entregable 1 (Semana 8)** y en el **arranque de la formalización e implementación del código fuente del Sprint 1 (Semanas 9 a 11)**:
 
-* **✅ Documentación de Ingeniería Aprobada y Consolidada:**
+* **✅ Documentación de Ingeniería Consolidada (aprobación académica pendiente de registrar):**
   * Requerimientos funcionales (RF01–RF13) y no funcionales (RNF01–RNF06) especificados con criterios de aceptación en Gherkin (`Dado/Cuando/Entonces`).
   * Arquitectura de software modelada bajo el estándar C4 (Contexto, Contenedores y Componentes).
   * Modelo de Base de Datos relacional normalizado con soporte DDL de borrado lógico (`ck_consulta_anulacion`), diagramas ER y scripts SQL.
-  * Prototipos UX/UI navegables de agendamiento, alertas y HCE unificada.
-* **🔨 En Proceso (Transición a Código - Sprint 1):**
-  * **Estructura del Proyecto:** Inicialización del scaffolding backend en **NestJS** y frontend en **React + Vite**.
-  * **Capa de Persistencia:** Mapeo de modelos en **Prisma ORM** y contenedor de **PostgreSQL** en Docker.
-  * **Seguridad Transversal:** Implementación de Guards JWT para RBAC e interceptor de auditoría para la Ley 29733 (HU17).
-  * **Lógica Núcleo en Construcción:**
-    * M1: Registro de paciente único con validación de DNI (HU06) y atención de consulta médica (HU08).
-    * M2: Agendamiento con validación de disponibilidad consolidada (HU01).
+  * Wireframes de agendamiento, alertas y HCE unificada.
+* **Implementado en backend:** conexión Prisma, prefijo `/api`, validación de DTO, CORS configurable, login JWT, permisos por rol y auditoría explícita en servicios y guard. Registro de pacientes sin cuenta de portal, antecedentes/alergias, búsqueda por documento o nombre y consulta de ficha. Los hashes nunca se devuelven en la API.
+* **Integridad en PostgreSQL:** migraciones con anulación justificada, bloqueo de borrado físico de consultas, antecedentes y alergias, bitácora append-only y exclusión de horarios solapados por médico. Las restricciones SQL complementan el esquema Prisma.
+* **Pendiente:** interfaz clínica (el frontend aún muestra la plantilla), agenda HU01/HU05 y horarios de atención, CIE-10/recetas/signos vitales/HCE cronológica, notificaciones, respaldo/restauración, Swagger y CI/CD. HU06, HU07 y HU17 tienen avance de backend; ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
 
 ---
 
@@ -115,16 +111,21 @@ El sistema adopta una **Arquitectura en Capas con API REST Monolítica Modular**
 ```
 
 ### Tecnologías Principales:
-* **Backend:** Node.js, TypeScript, [NestJS](https://nestjs.com/), Prisma ORM, BullMQ (colas de mensajería), class-validator.
-* **Frontend:** React, Vite, Tailwind CSS, Lucide Icons.
+* **Backend implementado:** Node.js, TypeScript, [NestJS](https://nestjs.com/), Prisma ORM, JWT, bcryptjs y class-validator.
+* **Frontend inicializado:** React, Vite y Tailwind CSS.
 * **Base de Datos & Cache:** PostgreSQL 16, Redis.
-* **Infraestructura & DevOps:** Docker, Docker Compose, Nginx, GitHub Actions (CI/CD con Jest y Supertest).
+* **Pruebas:** Vitest y Supertest, incluyendo pruebas de migraciones en un esquema PostgreSQL temporal.
+* **Infraestructura:** Docker Compose para PostgreSQL y Redis. La API y la web se ejecutan localmente.
+* **Arquitectura objetivo (pendiente):** BullMQ, Nginx, Swagger, Lucide y GitHub Actions. El diagrama anterior representa el diseño objetivo.
 
 ---
 
 ## 📁 Estructura del Repositorio
 
 ```text
+├── apps/
+│   ├── api/             # NestJS, Prisma, autenticación, auditoría y pacientes
+│   └── web/             # React + Vite + Tailwind (plantilla inicial)
 ├── entregables/
 │   ├── semana-2/       # Acta de constitución y documento de visión
 │   ├── semana-3/       # Guía de requerimientos iniciales
@@ -134,9 +135,94 @@ El sistema adopta una **Arquitectura en Capas con API REST Monolítica Modular**
 │   ├── semana-7/       # Modelos C4, workspace Structurizr DSL y consolidado
 │   └── semana-8/       # [DOCUMENTO PRINCIPAL] sprint-1.md (Entregable 1 completo)
 ├── README.md           # Ficha técnica y estado del proyecto
+├── docker-compose.yml  # PostgreSQL 16 y Redis 7
+└── .env.example        # Variables de infraestructura
 ```
 
 > 📄 **Documentación completa de ingeniería:** Puedes consultar la memoria técnica integral en [entregables/semana-8/sprint-1.md](entregables/semana-8/sprint-1.md).
+
+---
+
+## Ejecución local
+
+Requisitos: Node.js 24 LTS, npm y Docker Compose. En PowerShell usar `npm.cmd` si la política de scripts impide ejecutar `npm.ps1`. También se puede usar PostgreSQL 16 ya instalado.
+
+Desde la raíz:
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d
+Copy-Item apps/api/.env.example apps/api/.env
+```
+
+Ajustar `DATABASE_URL` en `apps/api/.env` al usuario, contraseña y puerto de PostgreSQL. Generar un secreto con `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` y asignarlo a `JWT_SECRET` (mínimo 32 caracteres). No versionar archivos `.env`. Si ya existen, conservarlos y agregar solo las variables faltantes.
+
+Backend:
+
+```powershell
+cd apps/api
+npm.cmd ci
+npm.cmd run prisma:generate
+npm.cmd run db:migrate
+npm.cmd run start:dev
+```
+
+API: `http://localhost:3000/api`. `GET /api` conserva el saludo de ejemplo; no es una comprobación de salud de PostgreSQL. Para ejecutar el compilado: `npm.cmd run build` y `npm.cmd run start:prod`.
+
+Frontend, en otra terminal:
+
+```powershell
+cd apps/web
+npm.cmd ci
+npm.cmd run dev
+```
+
+Abrir `http://localhost:5173`. `CORS_ORIGIN` debe coincidir con el origen de la web.
+
+### Cuentas ficticias de demostración
+
+Desde `apps/api`, definir temporalmente `DEMO_PASSWORD` con una contraseña local de al menos 12 caracteres y ejecutar `npm.cmd run db:seed:demo`. Crea `demo.admision`, `demo.medico` y `demo.enfermeria` con hash bcrypt. No modifica cuentas ya existentes. El médico de demostración es una cuenta de acceso; todavía no crea un registro de médico ni horarios para agenda.
+
+### Contrato HTTP inicial
+
+| Método y ruta | Permiso | Comportamiento |
+| :--- | :--- | :--- |
+| `POST /api/auth/login` | Público | `{ "username": "...", "password": "..." }`; devuelve `accessToken` (1 hora). |
+| `POST /api/patients` | admision | Registra datos, antecedentes y alergias; documento duplicado devuelve 409 y `patientId`. |
+| `GET /api/patients?q=texto&limit=20` | admision, medico, enfermeria | Busca por documento, nombres o apellidos; máximo 100 resultados; sin campos clínicos. |
+| `GET /api/patients/:id` | admision, medico, enfermeria | Ficha demográfica. |
+| `GET /api/patients/:id/clinical-profile` | medico, enfermeria | Ficha con antecedentes y alergias; todavía no es la HCE cronológica de HU03. |
+
+Enviar `Authorization: Bearer <accessToken>` en rutas protegidas. Los usuarios inactivos pierden acceso aunque el token no haya expirado. Las rutas nuevas requieren declarar sus roles explícitamente. Las operaciones de pacientes registran auditoría; futuras rutas clínicas deberán integrar el mismo servicio. Si no se puede escribir auditoría, no se devuelve información del paciente.
+
+Ejemplo de registro (solo datos ficticios):
+
+```json
+{
+  "tipoDocumento": "DNI",
+  "numeroDocumento": "87654321",
+  "nombres": "Paciente Ficticio",
+  "apellidos": "Prueba",
+  "fechaNacimiento": "1990-01-01",
+  "sexo": "F",
+  "telefono": "999888777",
+  "correo": "ficticio@example.test",
+  "antecedentes": [{ "tipo": "cronica", "descripcion": "Antecedente ficticio" }],
+  "alergias": [{ "sustancia": "Sustancia ficticia" }]
+}
+```
+
+### Verificación
+
+Desde `apps/api`: `npm.cmd run build`, `npm.cmd run lint`, `npm.cmd test`, `npm.cmd run test:e2e` y `npm.cmd run test:db`. Las pruebas HTTP e2e usan persistencia simulada; `test:db` aplica todas las migraciones y prueba el flujo HTTP contra un esquema temporal único, que elimina al terminar. Requiere PostgreSQL y permisos para crear esquemas y la extensión `btree_gist`. No reinicia las tablas del esquema de la aplicación.
+
+Desde `apps/web`: `npm.cmd run build` y `npm.cmd run lint`.
+
+Las migraciones no corrigen datos históricos incompatibles: si ya existen citas solapadas o anulaciones incompletas, se debe revisar esos datos antes de desplegarlas. En despliegue usar un rol de aplicación sin permisos de superusuario ni DDL; los triggers no protegen frente al administrador de la base de datos.
+
+### Siguiente paso: HU01
+
+Definir horarios laborales, duración de turnos y zona horaria `America/Lima`; agregar médicos/especialidades de prueba y una API de disponibilidad. Después implementar la reserva transaccional con respuesta 409 ante colisiones y su interfaz de admisión. La restricción de solapamientos ya existe; todavía no hay endpoints de citas.
 
 ---
 
@@ -152,4 +238,4 @@ El equipo sigue el estándar **[Conventional Commits](https://www.conventionalco
 ---
 
 ## ⚖️ Marco Legal y Normativo
-* **Ley N.° 29733 (Ley de Protección de Datos Personales - Perú):** Toda consulta o modificación sobre la Historia Clínica Electrónica es auditada en una bitácora inmutable (usuario, fecha, acción y recurso). No se permite el borrado físico de registros clínicos; únicamente la anulación sustentada con motivo (`ck_consulta_anulacion`).
+* **Requisito del proyecto asociado a la Ley N.° 29733:** auditar lecturas y modificaciones clínicas, restringir el acceso por rol y conservar entradas mediante anulación sustentada. La implementación actual cubre autenticación y pacientes; el resto de la HCE y la revisión integral de cumplimiento siguen pendientes.
