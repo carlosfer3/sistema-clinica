@@ -130,12 +130,40 @@ model Medico {
   especialidadId Int    @map("especialidad_id") @db.SmallInt
   cmp            String @unique @db.VarChar(10) // Código Colegio Médico
 
-  usuario      Usuario      @relation(fields: [usuarioId], references: [id])
-  especialidad Especialidad @relation(fields: [especialidadId], references: [id])
+  usuario      Usuario         @relation(fields: [usuarioId], references: [id])
+  especialidad Especialidad    @relation(fields: [especialidadId], references: [id])
   citas        Cita[]
   consultas    Consulta[]
+  horarios     HorarioMedico[]
 
   @@map("medico")
+}
+
+model Consultorio {
+  id       Int             @id @default(autoincrement()) @db.SmallInt
+  nombre   String          @unique @db.VarChar(40)
+  activo   Boolean         @default(true)
+  horarios HorarioMedico[]
+
+  @@map("consultorio")
+}
+
+// Weekly wall-clock times in America/Lima, independent of the server timezone.
+// Prisma represents TIME as Date with the UTC time component (1970-01-01 anchor).
+model HorarioMedico {
+  id              Int      @id @default(autoincrement())
+  medicoId        Int      @map("medico_id")
+  consultorioId   Int      @map("consultorio_id") @db.SmallInt
+  diaSemana       Int      @map("dia_semana") @db.SmallInt // 1=Monday ... 7=Sunday
+  horaInicio      DateTime @map("hora_inicio") @db.Time(0)
+  horaFin         DateTime @map("hora_fin") @db.Time(0)
+  duracionCitaMin Int      @default(20) @map("duracion_cita_min") @db.SmallInt
+
+  medico      Medico      @relation(fields: [medicoId], references: [id])
+  consultorio Consultorio @relation(fields: [consultorioId], references: [id])
+
+  @@unique([medicoId, diaSemana, horaInicio])
+  @@map("horario_medico")
 }
 
 model Cita {

@@ -648,16 +648,18 @@ El total correcto del Sprint 1 es **58 puntos** (13 historias); la cifra anterio
 | HU17 | Login JWT, rol/estado consultados en cada petición, denegaciones auditadas y acceso clínico restringido | Integrar auditoría en futuras operaciones de HCE, matriz completa, revisión por PR |
 | HU06 | API de registro con documento único, DNI de 8 dígitos, antecedentes (incluye crónicas) y alergias; paciente sin cuenta de portal | Interfaz de admisión, Swagger y DoD completa |
 | HU07 | API de búsqueda por documento/nombres/apellidos y ficha demográfica; perfil clínico para médico/enfermería | Interfaz y apertura de HCE cronológica (HU03) |
-| HU01/HU05 | Restricción PostgreSQL para intervalos válidos y evitar solapamientos por médico | Horarios de atención, disponibilidad, reservas/reprogramaciones/cancelaciones e interfaz |
+| HU01/HU05 | Restricción PostgreSQL para intervalos válidos y evitar solapamientos de citas por médico. Modelo semanal de horarios por médico y consultorio, con duración configurable y protección contra cruces | API de disponibilidad, reservas/reprogramaciones/cancelaciones e interfaz |
 | HU09 | CHECK de anulación y triggers contra DELETE/TRUNCATE de consultas | Endpoint de anulación, autorización e interfaz |
 
 Todas las historias del backlog permanecen **Por hacer** como entregables completos; este avance técnico no acredita toda la Definition of Done. No se ha verificado el producto en contenedores ni existe pipeline de CI todavía.
 
-**Persistencia implementada:** `usuario`, `paciente`, `medico`, `especialidad`, `cita`, `consulta`, `bitacora_auditoria`, `antecedente` y `alergia`. El DBML de semana 7 conserva las demás entidades como diseño objetivo. La fuente ejecutable es `apps/api/prisma/schema.prisma` más las migraciones SQL: Prisma no expresa los CHECK, triggers ni la exclusión GiST. `consulta.cita_id` es opcional, conforme al DBML. Los nombres del paciente se guardan en `paciente` y el vínculo a `usuario` es opcional.
+**Persistencia implementada (actualizada al 28/10/2026):** `usuario`, `paciente`, `medico`, `especialidad`, `consultorio`, `horario_medico`, `cita`, `consulta`, `bitacora_auditoria`, `antecedente` y `alergia`. El DBML de semana 7 conserva las demás entidades como diseño objetivo. La fuente ejecutable es `apps/api/prisma/schema.prisma` más las migraciones SQL: Prisma no expresa los CHECK, triggers ni las exclusiones GiST. `consulta.cita_id` es opcional, conforme al DBML. Los nombres del paciente se guardan en `paciente` y el vínculo a `usuario` es opcional.
 
 **Verificación reproducible:** `npm.cmd test`, `npm.cmd run test:e2e` y `npm.cmd run test:db` desde `apps/api`. Las pruebas de base de datos crean un esquema temporal único, aplican todas las migraciones y verifican duplicados, permisos, lectura clínica auditada, colisión concurrente, intervalos adyacentes, cancelación, anulación y bitácora append-only. No sustituyen la validación en contenedores ni la revisión por otro integrante.
 
-**Próximo incremento de Carlos:** HU01, empezando por acordar duración de turnos, horarios laborales y zona horaria `America/Lima`; después exponer disponibilidad y reserva transaccional con respuesta 409 ante colisión. HU05 reutilizará esa política; HU02/HU11 y HU18 siguen pendientes.
+**Avance de HU01 al 28/10/2026 (primera parte):** modelos `consultorio` y `horario_medico`, días ISO 1..7, horas locales de `America/Lima` y duración configurable (20 minutos por defecto). La migración impide intervalos inválidos y cruces semanales por médico o consultorio; permite bloques adyacentes. Horas en minutos completos, dentro del mismo día (00:00 a 23:59); vigencias y excepciones por fecha siguen fuera de este incremento. La disponibilidad deberá omitir cualquier resto del bloque que no alcance para una cita completa. Todavía no hay endpoints ni conexión de las citas con estos horarios.
+
+**Próximo incremento de Carlos:** HU01, agregando datos ficticios de médicos, consultorios y horarios y exponiendo disponibilidad por especialidad/médico/fecha. Después, reserva transaccional con respuesta 409 ante colisión. HU05 reutilizará esa política; HU02/HU11 y HU18 siguen pendientes.
 
 ---
 

@@ -222,7 +222,11 @@ Las migraciones no corrigen datos históricos incompatibles: si ya existen citas
 
 ### Siguiente paso: HU01
 
-Definir horarios laborales, duración de turnos y zona horaria `America/Lima`; agregar médicos/especialidades de prueba y una API de disponibilidad. Después implementar la reserva transaccional con respuesta 409 ante colisiones y su interfaz de admisión. La restricción de solapamientos ya existe; todavía no hay endpoints de citas.
+Primera parte implementada: modelos `Consultorio` y `HorarioMedico`, con horarios semanales por médico y consultorio. Días ISO (1=lunes, 7=domingo), horas locales de `America/Lima` y duración configurable de 20 minutos por defecto. PostgreSQL rechaza cruces del mismo médico o consultorio, días inválidos, intervalos invertidos y duraciones que no caben. Los bloques adyacentes están permitidos. Horas en minutos completos, dentro del mismo día (00:00 a 23:59); sin vigencias, feriados ni excepciones por fecha todavía. Prisma representa las horas `TIME` mediante `Date` con fecha de referencia `1970-01-01` y componente horario UTC: no convertirlas usando la zona horaria del servidor.
+
+El modelo permite bloques de varias citas; la consulta de disponibilidad generará únicamente turnos completos desde `horaInicio`, dejando fuera cualquier resto menor que `duracionCitaMin`. Los horarios aún no tienen endpoints de administración ni datos de demostración cargados. Este incremento no conecta las citas existentes con los horarios: esa validación se implementará al reservar.
+
+Siguiente parte: agregar médicos/especialidades/consultorios ficticios y una API de disponibilidad por especialidad, médico y fecha. Después implementar la reserva transaccional con respuesta 409 ante colisiones y su interfaz de admisión. Todavía no hay endpoints de citas.
 
 ---
 

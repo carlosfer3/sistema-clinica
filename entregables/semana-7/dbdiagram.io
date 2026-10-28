@@ -1,6 +1,6 @@
 Project clinica_san_rafael {
   database_type: 'PostgreSQL'
-  Note: 'Modelo objetivo. Implementado en Prisma: usuario, paciente, medico, especialidad, cita, consulta, bitacora_auditoria, antecedente y alergia. Las demas tablas siguen planificadas.'
+  Note: 'Modelo objetivo. Implementado en Prisma: usuario, paciente, medico, especialidad, consultorio, horario_medico, cita, consulta, bitacora_auditoria, antecedente y alergia. Las demas tablas siguen planificadas.'
 }
 
 Enum rol_usuario {
@@ -168,14 +168,14 @@ Table horario_medico [headercolor: #27ae60] {
   medico_id int [not null, ref: > medico.id]
   consultorio_id smallint [not null, ref: > consultorio.id]
   dia_semana smallint [not null, note: '1=lunes ... 7=domingo']
-  hora_inicio time [not null]
-  hora_fin time [not null]
+  hora_inicio time [not null, note: 'Hora local America/Lima, minutos completos (00:00 a 23:59)']
+  hora_fin time [not null, note: 'Mayor que inicio; bloque dentro del mismo dia']
   duracion_cita_min smallint [not null, default: 20]
 
   indexes {
     (medico_id, dia_semana, hora_inicio) [unique]
   }
-  Note: 'CHECK: hora_fin > hora_inicio'
+  Note: 'CHECK: dia 1..7, fin > inicio, minutos completos y duracion positiva que cabe en el bloque. Exclusiones GiST impiden cruces semanales por medico y por consultorio; extremos adyacentes permitidos. No hay vigencia ni excepciones por fecha en este incremento.'
 }
 
 Table cita [headercolor: #27ae60] {

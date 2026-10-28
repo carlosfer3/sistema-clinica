@@ -21,6 +21,7 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
   let patientId: number;
   let doctorId: number;
   let doctorUserId: number;
+  let consultingRoomId: number;
   let schemaCreated = false;
   const patient = {
     tipoDocumento: 'DNI',
@@ -81,6 +82,10 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
     });
     doctorId = doctor.id;
     doctorUserId = doctor.usuarioId;
+    const room = await db.consultorio.create({
+      data: { nombre: 'Consultorio ficticio' },
+    });
+    consultingRoomId = room.id;
     process.env.JWT_SECRET = 'isolated-db-test-secret-at-least-32-characters';
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService)
@@ -269,5 +274,148 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
     await expect(
       db.$executeRawUnsafe('TRUNCATE bitacora_auditoria'),
     ).rejects.toThrow();
+  });
+
+  const time = (value: string) => new Date(`1970-01-01T${value}:00.000Z`);
+
+  it('stores weekly local schedules with a default duration and accepts adjacent blocks', async () => {
+    const data = {
+      medicoId: doctorId,
+      consultorioId: consultingRoomId,
+      diaSemana: 1,
+      horaInicio: time('09:00'),
+      horaFin: time('12:00'),
+    };
+    const schedule = await db.horarioMedico.create({ data });
+    expect(schedule.duracionCitaMin).toBe(20);
+    expect(schedule.horaInicio.toISOString()).toBe('1970-01-01T09:00:00.000Z');
+    await expect(
+      db.horarioMedico.create({
+        data: {
+          ...data,
+          horaInicio: time('12:00'),
+          horaFin: time('13:00'),
+          duracionCitaMin: 30,
+        },
+      }),
+    ).resolves.toBeDefined();
+    await expect(
+      db.horarioMedico.create({ data: { ...data, diaSemana: 7 } }),
+    ).resolves.toBeDefined();
+  });
+
+  it('rejects invalid days, reversed intervals, seconds and durations that do not fit', async () => {
+    const data = {
+      medicoId: doctorId,
+      consultorioId: consultingRoomId,
+      diaSemana: 2,
+      horaInicio: time('09:00'),
+      horaFin: time('10:00'),
+      duracionCitaMin: 20,
+    };
+    const invalid = [
+      { diaSemana: 0 },
+      { diaSemana: 8 },
+      { horaFin: time('09:00') },
+      { horaFin: time('08:00') },
+      { horaInicio: new Date('1970-01-01T09:00:01.000Z') },
+      { horaFin: new Date('1970-01-01T10:00:01.000Z') },
+      { duracionCitaMin: 0 },
+      { duracionCitaMin: -1 },
+      { duracionCitaMin: 61 },
+    ];
+    for (const change of invalid) {
+      await expect(
+        db.horarioMedico.create({ data: { ...data, ...change } }),
+      ).rejects.toThrow();
+    }
+    await expect(db.$executeRaw`
+      INSERT INTO horario_medico (medico_id, consultorio_id, dia_semana, hora_inicio, hora_fin)
+      VALUES (${doctorId}, ${consultingRoomId}, 2, time '23:00', time '24:00')
+    `).rejects.toThrow();
+    expect(await db.horarioMedico.count({ where: { diaSemana: 2 } })).toBe(0);
+  });
+
+  it('rejects doctor overlaps across rooms and room overlaps across doctors', async () => {
+    const otherRoom = await db.consultorio.create({
+      data: { nombre: 'Consultorio alterno' },
+    });
+    const otherDoctor = await db.medico.create({
+      data: {
+        cmp: 'TEST0002',
+        especialidad: {
+          connect: {
+            id: (await db.medico.findUniqueOrThrow({ where: { id: doctorId } }))
+              .especialidadId,
+          },
+        },
+        usuario: {
+          create: {
+            username: 'other-doctor-test',
+            passwordHash: await hash('fictitious-test-password', 4),
+            rol: 'medico',
+            nombres: 'Otro',
+            apellidos: 'Ficticio',
+          },
+        },
+      },
+    });
+    const data = {
+      medicoId: doctorId,
+      consultorioId: consultingRoomId,
+      diaSemana: 3,
+      horaInicio: time('09:00'),
+      horaFin: time('12:00'),
+    };
+    await db.horarioMedico.create({ data });
+    await expect(
+      db.horarioMedico.create({
+        data: {
+          ...data,
+          consultorioId: otherRoom.id,
+          horaInicio: time('10:00'),
+          horaFin: time('13:00'),
+        },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      db.horarioMedico.create({
+        data: {
+          ...data,
+          medicoId: otherDoctor.id,
+          horaInicio: time('10:00'),
+          horaFin: time('13:00'),
+        },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      db.horarioMedico.create({
+        data: {
+          ...data,
+          medicoId: otherDoctor.id,
+          consultorioId: otherRoom.id,
+        },
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it('allows only one concurrent allocation of the same weekly block', async () => {
+    const data = {
+      medicoId: doctorId,
+      consultorioId: consultingRoomId,
+      diaSemana: 4,
+      horaInicio: time('09:00'),
+      horaFin: time('12:00'),
+    };
+    const results = await Promise.allSettled([
+      db.horarioMedico.create({ data }),
+      db.horarioMedico.create({ data }),
+    ]);
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === 'rejected'),
+    ).toHaveLength(1);
   });
 });
