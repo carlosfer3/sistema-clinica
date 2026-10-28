@@ -337,6 +337,8 @@ Debido a que la gestión manual de la Clínica San Rafael provoca errores de med
 
 ### 5. Documento de arquitectura de software (SAD)
 
+Las vistas y el stack describen la arquitectura objetivo. Swagger, colas de notificaciones, proxy y GitHub Actions aún están pendientes; las pruebas implementadas utilizan Vitest y Supertest.
+
 #### 5.1. Estilo arquitectónico
 Se elige la **arquitectura en capas con API REST monolítica modular** porque:
 1. **Escala del problema:** La clínica es una sola sede con hasta 8 000 pacientes (RNF01). No existe hoy una necesidad real de escalar o desplegar los módulos de forma independiente, que es lo único que justifica el costo operacional y de red de los microservicios.
@@ -364,7 +366,7 @@ Se elige la **arquitectura en capas con API REST monolítica modular** porque:
 | :--- | :--- |
 | **Lógica** | Monolito modular con cinco módulos en el backend: historia clínica (M1), agenda y citas (M2), laboratorio e imágenes (M3), facturación y convenios (M4) y reportes gerenciales (M5). El portal del paciente (M6) está en el frontend, junto a la interfaz del personal. Control de acceso, validación y auditoría atienden todas las peticiones. Las entidades centrales son paciente, médico, consulta (que se anula, nunca se borra), cita, orden con sus estudios y resultados, y comprobante. |
 | **Procesos** | Toda petición pasa por el control de acceso, luego la validación y después el módulo; la auditoría registra lo ocurrido. Los recordatorios de citas salen por un worker aparte con cola y reintentos, así que si el proveedor falla, la agenda sigue. Las reglas delicadas (anular una consulta con motivo y responsable, evitar que dos pacientes tomen el mismo horario de un médico) se resuelven con transacciones y restricciones en PostgreSQL. Reportes solo lee. |
-| **Desarrollo** | Un repositorio en GitHub con backend (NestJS, un módulo por cada M1 a M5) y frontend (React con Vite, incluye el portal M6). Los módulos no leen las tablas de otro módulo; se piden datos por servicios. Ramas por módulo, pull requests y GitHub Actions corriendo Jest y Supertest en cada commit. |
+| **Desarrollo** | Un repositorio en GitHub con backend (NestJS, un módulo por cada M1 a M5) y frontend (React con Vite, incluye el portal M6). Los módulos no leen las tablas de otro módulo; se piden datos por servicios. Ramas por módulo, pull requests y GitHub Actions corriendo Vitest y Supertest en cada commit. |
 | **Física** | Una máquina virtual en la nube (plan gratuito o de estudiante, o Render/Railway en nivel gratuito) con Docker Compose y cuatro contenedores: Nginx, API, worker y PostgreSQL. Un cron saca copias con pg_dump y las sube cifradas a la nube; UptimeRobot vigila /health. Solo se conecta hacia afuera con el proveedor de mensajería. |
 | **Escenarios** | El médico anula una consulta con motivo y responsable; enfermería intenta editar la historia y se le niega; dos personas piden el mismo horario del mismo médico y solo una lo consigue; el paciente agenda una cita en línea y recibe su recordatorio aunque el proveedor falle; gerencia pide un reporte con 8 000 pacientes y responde en tiempo; se restaura un respaldo y los datos vuelven completos. |
 
@@ -416,7 +418,7 @@ Se elige la **arquitectura en capas con API REST monolítica modular** porque:
 | **Contenedores** | Docker + Docker Compose | Paridad absoluta entre entornos de desarrollo y producción. |
 | **Hosting** | VPS / Nube (Render, Railway u Oracle Free Tier) | Ajustado a la restricción presupuestaria dada. |
 | **Monitoreo** | Endpoint `/health` + UptimeRobot | Verificación continua de disponibilidad (RNF03). |
-| **Pruebas** | Jest + Supertest | Pruebas unitarias y de integración de endpoints. |
+| **Pruebas** | Vitest + Supertest | Pruebas unitarias y de integración de endpoints. |
 | **CI/CD** | GitHub + GitHub Actions | Pipeline automatizado de linting y testing por cada commit y PR. |
 
 ---
@@ -444,7 +446,9 @@ Se elige la **arquitectura en capas con API REST monolítica modular** porque:
 | Campo | Tipo | Nulo | Descripción |
 | :--- | :--- | :---: | :--- |
 | `id` | integer | NO | PK autoincremental |
-| `usuario_id` | integer | NO | FK → `usuario.id`. Cuenta de usuario asociada |
+| `usuario_id` | integer | SI | FK → `usuario.id`. Cuenta opcional del portal (Sprint 2) |
+| `nombres` | varchar(100) | NO | Nombres propios del paciente, sin requerir cuenta |
+| `apellidos` | varchar(100) | NO | Apellidos del paciente |
 | `tipo_documento` | varchar(12) | NO | DNI, CE o PASAPORTE |
 | `numero_documento` | varchar(15) | NO | Número de documento (único con tipo_documento) |
 | `fecha_nacimiento` | date | NO | Fecha de nacimiento |
@@ -484,7 +488,7 @@ Se elige la **arquitectura en capas con API REST monolítica modular** porque:
 | `id` | integer | NO | PK autoincremental |
 | `paciente_id` | integer | NO | FK → `paciente.id` |
 | `medico_id` | integer | NO | FK → `medico.id` |
-| `cita_id` | integer | NO | FK → `cita.id` (único) |
+| `cita_id` | integer | SI | FK → `cita.id` (único). Permite atención sin cita, sin ampliar el alcance a hospitalización |
 | `fecha_hora` | timestamptz | NO | Fecha y hora de la atención |
 | `motivo` | varchar(300) | NO | Motivo de la atención médica |
 | `indicaciones` | text | SI | Indicaciones generales registradas |
@@ -550,7 +554,8 @@ CREATE TABLE consulta (
     anulado_en       timestamptz,
     CONSTRAINT ck_consulta_anulacion CHECK (
         estado = 'activo'
-        OR (motivo_anulacion IS NOT NULL AND anulado_por IS NOT NULL AND anulado_en IS NOT NULL)
+        OR (motivo_anulacion IS NOT NULL AND length(btrim(motivo_anulacion)) > 0
+            AND anulado_por IS NOT NULL AND anulado_en IS NOT NULL)
     )
 );
 ```
@@ -579,7 +584,9 @@ CREATE TABLE consulta (
 
 *Descripción:* Resuelve la fragmentación de historias clínicas en papel. El médico accede al historial completo: antecedentes, diagnósticos previos (CIE-10), indicaciones de otras especialidades, recetas activas y resultados de análisis.
 
-#### 7.4. Flujo de navegación principal
+#### 7.4. Flujo de navegación del portal (objetivo del Sprint 2)
+
+Este flujo corresponde a HU16. La demostración del Sprint 1 usa admisión, enfermería y médico, sin exigir cuentas del portal para registrar pacientes.
 | Paso | Descripción |
 | :---: | :--- |
 | **1** | El paciente accede al portal ingresando sus credenciales de usuario. |
@@ -598,7 +605,7 @@ CREATE TABLE consulta (
 
 | Sprint | Semanas | Alcance funcional y técnico | Estimación |
 | :---: | :---: | :--- | :---: |
-| **Sprint 1** | Semanas 9 – 11 | **Módulos M1 y M2 completos, más historias transversales de seguridad y respaldo:**<br>• **M1 (HCE):** HU06 (perfil único), HU07 (búsqueda DNI/nombre), HU08 (consulta con CIE-10/receta), HU09 (anular con motivo), HU10 (signos vitales), HU04 (antecedentes e indicaciones), HU03 (HCE unificada).<br>• **M2 (Agenda) y Notificaciones:** HU01 (agendar con disponibilidad), HU05 (reprogramar/cancelar), HU02 (recordatorio 24h), HU11 (confirmación).<br>• **Transversales:** HU17 (RBAC y auditoría Ley 29733) y HU18 (respaldo y restauración).<br><br>*Objetivo:* Dejar operativo el flujo núcleo clínico (RF01–RF09) sin borrado físico y con trazabilidad completa. | **13 historias**<br>**49 puntos** |
+| **Sprint 1** | Semanas 9 – 11 | **Módulos M1 y M2 completos, más historias transversales de seguridad y respaldo:**<br>• **M1 (HCE):** HU06 (perfil único), HU07 (búsqueda DNI/nombre), HU08 (consulta con CIE-10/receta), HU09 (anular con motivo), HU10 (signos vitales), HU04 (antecedentes e indicaciones), HU03 (HCE unificada).<br>• **M2 (Agenda) y Notificaciones:** HU01 (agendar con disponibilidad), HU05 (reprogramar/cancelar), HU02 (recordatorio 24h), HU11 (confirmación).<br>• **Transversales:** HU17 (RBAC y auditoría Ley 29733) y HU18 (respaldo y restauración).<br><br>*Objetivo:* Dejar operativo el flujo núcleo clínico (RF01–RF09) sin borrado físico y con trazabilidad completa. | **13 historias**<br>**58 puntos** |
 | **Sprint 2** | Semanas 12 – 14 | **Módulos M3, M4, M5 y M6 completos:**<br>• **M3 (Laboratorio e imágenes):** HU12 (generar orden), HU13 (resultado digital).<br>• **M4 (Facturación y convenios):** HU14 (convenio y copago en cobro).<br>• **M5 (Reportes gerenciales):** HU15 (ocupación, esperas e inasistencia).<br>• **M6 (Portal del paciente):** HU16 (agendamiento en línea).<br><br>*Objetivo:* Eliminar el papel en laboratorio, visibilizar convenios en caja, métricas de gestión y canal de autoservicio. | **5 historias**<br>**25 puntos** |
 
 ---
@@ -619,15 +626,38 @@ CREATE TABLE consulta (
 | **HU02** | Enviar recordatorio automático de cita 24h antes | Carlos Benjamin Fernandez Iquise | 3 | Por hacer |
 | **HU11** | Enviar confirmación al registrar, reprogramar o cancelar | Carlos Benjamin Fernandez Iquise | 3 | Por hacer |
 | **HU18** | Respaldo diario automático con restauración comprobada | Carlos Benjamin Fernandez Iquise | 3 | Por hacer |
-| **TOTAL** | **13 historias de usuario priorizadas** | — | **49** | — |
+| **TOTAL** | **13 historias de usuario priorizadas** | — | **58** | — |
 
 #### 9.1. Definición de Hecho (Definition of Done)
 1. **Criterios de Aceptación:** El código cumple los criterios Dado/Cuando/Entonces y fue revisado por al menos otro integrante mediante Pull Request en GitHub.
-2. **Pruebas Automatizadas:** Pruebas unitarias o de integración con Jest/Supertest pasando al 100 % sin errores.
+2. **Pruebas Automatizadas:** Pruebas unitarias o de integración con Vitest/Supertest pasando al 100 % sin errores.
 3. **Reglas de Base de Datos e Integridad:** Cero borrado físico en HCE (solo anulación vía `ck_consulta_anulacion`), control RBAC activo y auditoría registrada en cada acceso.
 4. **Integración Continua:** Código fusionado en rama principal sin fallas en el pipeline de GitHub Actions.
 5. **Pruebas End-to-End en Contenedores:** Probado en ambiente Docker, verificando casos límite (DNI duplicado, colisión de horarios, anulación con motivo).
-6. **Documentación:** Swagger actualizado y modelo relacional/DBML sincronizado con cualquier cambio de esquema.
+6. **Documentación:** Swagger actualizado y modelo relacional/DBML sincronizado con cualquier cambio de esquema. Swagger sigue pendiente y bloquea declarar historias terminadas.
+
+---
+
+### 9.2. Avance técnico al 27/10/2026
+
+El total correcto del Sprint 1 es **58 puntos** (13 historias); la cifra anterior de 49 era un error de suma. El Sprint 2 conserva 25 puntos. Las estimaciones individuales no cambiaron.
+
+| Área | Implementado | Pendiente para cerrar historias |
+| :--- | :--- | :--- |
+| Base técnica | Prisma integrado, configuración, prefijo `/api`, DTO, CORS y cierre de conexiones | Validación del equipo en contenedores y pipeline |
+| HU17 | Login JWT, rol/estado consultados en cada petición, denegaciones auditadas y acceso clínico restringido | Integrar auditoría en futuras operaciones de HCE, matriz completa, revisión por PR |
+| HU06 | API de registro con documento único, DNI de 8 dígitos, antecedentes (incluye crónicas) y alergias; paciente sin cuenta de portal | Interfaz de admisión, Swagger y DoD completa |
+| HU07 | API de búsqueda por documento/nombres/apellidos y ficha demográfica; perfil clínico para médico/enfermería | Interfaz y apertura de HCE cronológica (HU03) |
+| HU01/HU05 | Restricción PostgreSQL para intervalos válidos y evitar solapamientos por médico | Horarios de atención, disponibilidad, reservas/reprogramaciones/cancelaciones e interfaz |
+| HU09 | CHECK de anulación y triggers contra DELETE/TRUNCATE de consultas | Endpoint de anulación, autorización e interfaz |
+
+Todas las historias del backlog permanecen **Por hacer** como entregables completos; este avance técnico no acredita toda la Definition of Done. No se ha verificado el producto en contenedores ni existe pipeline de CI todavía.
+
+**Persistencia implementada:** `usuario`, `paciente`, `medico`, `especialidad`, `cita`, `consulta`, `bitacora_auditoria`, `antecedente` y `alergia`. El DBML de semana 7 conserva las demás entidades como diseño objetivo. La fuente ejecutable es `apps/api/prisma/schema.prisma` más las migraciones SQL: Prisma no expresa los CHECK, triggers ni la exclusión GiST. `consulta.cita_id` es opcional, conforme al DBML. Los nombres del paciente se guardan en `paciente` y el vínculo a `usuario` es opcional.
+
+**Verificación reproducible:** `npm.cmd test`, `npm.cmd run test:e2e` y `npm.cmd run test:db` desde `apps/api`. Las pruebas de base de datos crean un esquema temporal único, aplican todas las migraciones y verifican duplicados, permisos, lectura clínica auditada, colisión concurrente, intervalos adyacentes, cancelación, anulación y bitácora append-only. No sustituyen la validación en contenedores ni la revisión por otro integrante.
+
+**Próximo incremento de Carlos:** HU01, empezando por acordar duración de turnos, horarios laborales y zona horaria `America/Lima`; después exponer disponibilidad y reserva transaccional con respuesta 409 ante colisión. HU05 reutilizará esa política; HU02/HU11 y HU18 siguen pendientes.
 
 ---
 

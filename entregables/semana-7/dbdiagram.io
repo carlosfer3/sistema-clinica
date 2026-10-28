@@ -1,5 +1,6 @@
 Project clinica_san_rafael {
   database_type: 'PostgreSQL'
+  Note: 'Modelo objetivo. Implementado en Prisma: usuario, paciente, medico, especialidad, cita, consulta, bitacora_auditoria, antecedente y alergia. Las demas tablas siguen planificadas.'
 }
 
 Enum rol_usuario {
@@ -26,7 +27,8 @@ Table usuario [headercolor: #7f8c8d] {
 
 Table especialidad [headercolor: #7f8c8d] {
   id smallint [pk, increment]
-  nombre varchar(80) [not null, unique]
+  nombre varchar(100) [not null, unique]
+  descripcion varchar(255)
 }
 
 Table medico [headercolor: #7f8c8d] {
@@ -44,30 +46,29 @@ Table servicio [headercolor: #7f8c8d] {
 }
 
 Table bitacora_auditoria [headercolor: #7f8c8d] {
-  id bigint [pk, increment]
-  usuario_id int [not null, ref: > usuario.id]
+  id int [pk, increment]
+  usuario_id int [ref: > usuario.id, note: 'Nulo para acceso sin autenticacion']
   fecha_hora timestamptz [not null, default: `now()`]
-  accion varchar(30) [not null, note: 'leer, crear, editar, anular, acceso_denegado']
-  entidad varchar(50) [not null]
-  entidad_id bigint
-  resultado varchar(10) [not null, note: 'permitido, denegado']
-  Note: 'Solo INSERT. El usuario de BD de la app no tiene UPDATE ni DELETE.'
+  accion varchar(50) [not null, note: 'LOGIN, LOGIN_FAILED, ACCESS_DENIED, SEARCH_PATIENTS, READ_CLINICAL_PROFILE, CREATE_PATIENT']
+  recurso varchar(100) [not null]
+  detalles text
+  ip_origen varchar(45)
+  Note: 'Triggers rechazan UPDATE, DELETE y TRUNCATE. En despliegue usar rol de aplicacion sin privilegios DDL ni superusuario.'
 }
 
 // ===== M1 HCE (azul) =====
 Table paciente [headercolor: #2980b9] {
   id int [pk, increment]
   usuario_id int [unique, ref: - usuario.id, note: 'Solo si tiene cuenta en el portal']
-  tipo_documento varchar(12) [not null, default: 'DNI', note: 'DNI, CE, PASAPORTE']
+  tipo_documento varchar(12) [not null, note: 'DNI, CE, PASAPORTE']
   numero_documento varchar(15) [not null]
   nombres varchar(100) [not null]
   apellidos varchar(100) [not null]
   fecha_nacimiento date [not null]
   sexo char(1) [not null, note: 'M, F']
-  telefono varchar(20)
-  correo varchar(120)
+  telefono varchar(20) [not null]
+  correo varchar(120) [not null]
   direccion varchar(200)
-  creado_en timestamptz [not null, default: `now()`]
 
   indexes {
     (tipo_documento, numero_documento) [unique, name: 'uq_paciente_documento']
@@ -112,7 +113,7 @@ Table consulta [headercolor: #2980b9] {
   indexes {
     (paciente_id, fecha_hora) [name: 'ix_consulta_paciente_fecha']
   }
-  Note: 'CHECK: si estado = anulado, motivo_anulacion, anulado_por y anulado_en son obligatorios. Sin DELETE.'
+  Note: 'CHECK ck_consulta_anulacion exige motivo no vacio, usuario y fecha al anular. Triggers rechazan DELETE y TRUNCATE.'
 }
 
 Table consulta_diagnostico [headercolor: #2980b9] {
