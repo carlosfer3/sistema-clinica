@@ -181,7 +181,18 @@ Abrir `http://localhost:5173`. `CORS_ORIGIN` debe coincidir con el origen de la 
 
 ### Cuentas ficticias de demostración
 
-Desde `apps/api`, definir temporalmente `DEMO_PASSWORD` con una contraseña local de al menos 12 caracteres y ejecutar `npm.cmd run db:seed:demo`. Crea `demo.admision`, `demo.medico` y `demo.enfermeria` con hash bcrypt. No modifica cuentas ya existentes. El médico de demostración es una cuenta de acceso; todavía no crea un registro de médico ni horarios para agenda.
+Desde `apps/api`, definir `DEMO_PASSWORD` en el entorno local (no versionado), con al menos 12 caracteres y hasta 72 bytes UTF-8, y ejecutar `npm.cmd run db:seed:demo` después de aplicar las migraciones. Crea `demo.admision`, `demo.medico`, `demo.medico.pediatria` y `demo.enfermeria` con hash bcrypt. Las cuentas nuevas usan esa contraseña; las existentes conservan su contraseña y sus datos.
+
+La carga incluye dos especialidades, dos médicos asociados a sus cuentas, dos consultorios y cinco bloques semanales ficticios:
+
+| Cuenta médica | Especialidad | Consultorio | Días | Horario local (`America/Lima`) | Duración |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `demo.medico` | Medicina General (DEMO) | Consultorio DEMO 1 | Lunes, miércoles y viernes | 08:00–12:00 | 20 minutos |
+| `demo.medico.pediatria` | Pediatria (DEMO) | Consultorio DEMO 2 | Martes y jueves | 09:00–12:00 | 30 minutos |
+
+Los códigos `DEMO0001` y `DEMO0002` son identificadores ficticios, no matrículas profesionales reales. Los horarios usan una fecha de referencia UTC para almacenar las horas locales sin desplazarlas. Se puede repetir el comando sin duplicar estos registros. Toda la carga es transaccional: si una cuenta tiene un rol incompatible o está inactiva, un consultorio está inactivo, un médico/horario existente difiere de la configuración esperada o PostgreSQL rechaza un cruce, se cancela la carga completa sin sobrescribir los datos existentes. Revisar el conflicto antes de volver a ejecutarla.
+
+El seed rechaza `NODE_ENV=production`; verificar además que `DATABASE_URL` apunte al entorno de desarrollo antes de ejecutarlo. No crea pacientes ni citas: registrar pacientes mediante la API permite comprobar validaciones, permisos y auditoría. Estos datos preparan la agenda para desarrollar disponibilidad; no implementan endpoints ni reserva. Las pruebas del seed se ejecutan con `npm.cmd run test:db` en un esquema temporal independiente.
 
 ### Contrato HTTP inicial
 
@@ -226,9 +237,9 @@ Las migraciones no corrigen datos históricos incompatibles: si ya existen citas
 
 Primera parte implementada: modelos `Consultorio` y `HorarioMedico`, con horarios semanales por médico y consultorio. Días ISO (1=lunes, 7=domingo), horas locales de `America/Lima` y duración configurable de 20 minutos por defecto. PostgreSQL rechaza cruces del mismo médico o consultorio, días inválidos, intervalos invertidos y duraciones que no caben. Los bloques adyacentes están permitidos. Horas en minutos completos, dentro del mismo día (00:00 a 23:59); sin vigencias, feriados ni excepciones por fecha todavía. Prisma representa las horas `TIME` mediante `Date` con fecha de referencia `1970-01-01` y componente horario UTC: no convertirlas usando la zona horaria del servidor.
 
-El modelo permite bloques de varias citas; la consulta de disponibilidad generará únicamente turnos completos desde `horaInicio`, dejando fuera cualquier resto menor que `duracionCitaMin`. Los horarios aún no tienen endpoints de administración ni datos de demostración cargados. Este incremento no conecta las citas existentes con los horarios: esa validación se implementará al reservar.
+El modelo permite bloques de varias citas; la consulta de disponibilidad generará únicamente turnos completos desde `horaInicio`, dejando fuera cualquier resto menor que `duracionCitaMin`. Los horarios aún no tienen endpoints de administración; el seed de demostración permite cargar bloques ficticios. Este incremento no conecta las citas existentes con los horarios: esa validación se implementará al reservar.
 
-Siguiente parte: agregar médicos/especialidades/consultorios ficticios y una API de disponibilidad por especialidad, médico y fecha. Después implementar la reserva transaccional con respuesta 409 ante colisiones y su interfaz de admisión. Todavía no hay endpoints de citas.
+Siguiente parte: implementar una API de disponibilidad por especialidad, médico y fecha usando los datos ficticios del seed. Después implementar la reserva transaccional con respuesta 409 ante colisiones y su interfaz de admisión. Todavía no hay endpoints de citas.
 
 ---
 
