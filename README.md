@@ -214,6 +214,8 @@ Ejemplo de registro (solo datos ficticios):
 
 ### Verificación
 
+Las pruebas manuales de API se realizan con **Bruno**. Consultar el [registro de pruebas y evidencias](entregables/semana-8/pruebas/registro-pruebas.md), que distingue resultados manuales, pruebas automatizadas y alcance pendiente de HU01.
+
 Desde `apps/api`: `npm.cmd run build`, `npm.cmd run lint`, `npm.cmd test`, `npm.cmd run test:e2e` y `npm.cmd run test:db`. Las pruebas HTTP e2e usan persistencia simulada; `test:db` aplica todas las migraciones y prueba el flujo HTTP contra un esquema temporal único, que elimina al terminar. Requiere PostgreSQL y permisos para crear esquemas y la extensión `btree_gist`. No reinicia las tablas del esquema de la aplicación.
 
 Desde `apps/web`: `npm.cmd run build` y `npm.cmd run lint`.
