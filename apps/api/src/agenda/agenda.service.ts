@@ -1,7 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AvailabilityDto } from './availability.dto.js';
+import { CreateAppointmentDto } from './create-appointment.dto.js';
 
 @Injectable()
 export class AgendaService {
@@ -9,6 +15,104 @@ export class AgendaService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
   ) {}
+
+  async create(dto: CreateAppointmentDto, actorId: number, ip?: string) {
+    const start = new Date(dto.inicio);
+    // Shift the instant to Lima wall-clock components, independent of server TZ.
+    const local = new Date(start.getTime() - 5 * 3600000);
+    const minute = local.getUTCHours() * 60 + local.getUTCMinutes();
+    const weekday = local.getUTCDay() || 7;
+    return this.prisma.$transaction(
+      async (tx) => {
+        // Serialize reservations for a doctor across API processes. Under READ
+        // COMMITTED, the overlap query sees the preceding reservation's commit.
+        await tx.$queryRaw`SELECT id FROM medico WHERE id = ${dto.medicoId} FOR UPDATE`;
+        if (start.getTime() <= Date.now()) {
+          throw new BadRequestException('Appointment must start in the future');
+        }
+        const doctor = await tx.medico.findFirst({
+          where: { id: dto.medicoId, usuario: { activo: true, rol: 'medico' } },
+          select: { id: true },
+        });
+        if (!doctor) throw new NotFoundException('Active doctor not found');
+        const patient = await tx.paciente.findUnique({
+          where: { id: dto.pacienteId },
+          select: { id: true },
+        });
+        if (!patient) throw new NotFoundException('Patient not found');
+        const schedules = await tx.horarioMedico.findMany({
+          where: {
+            medicoId: dto.medicoId,
+            diaSemana: weekday,
+            consultorio: { activo: true },
+          },
+          select: { horaInicio: true, horaFin: true, duracionCitaMin: true },
+        });
+        const schedule = schedules.find((s) => {
+          const begin =
+            s.horaInicio.getUTCHours() * 60 + s.horaInicio.getUTCMinutes();
+          const end = s.horaFin.getUTCHours() * 60 + s.horaFin.getUTCMinutes();
+          return (
+            minute >= begin &&
+            minute + s.duracionCitaMin <= end &&
+            (minute - begin) % s.duracionCitaMin === 0
+          );
+        });
+        if (!schedule)
+          throw new BadRequestException(
+            'Start does not match a complete scheduled slot',
+          );
+        const end = new Date(
+          start.getTime() + schedule.duracionCitaMin * 60000,
+        );
+        const overlap = await tx.cita.findFirst({
+          where: {
+            medicoId: dto.medicoId,
+            estado: { not: 'cancelada' },
+            fechaHoraInicio: { lt: end },
+            fechaHoraFin: { gt: start },
+          },
+          select: { id: true },
+        });
+        if (overlap)
+          throw new ConflictException(
+            'Appointment slot is no longer available',
+          );
+        const appointment = await tx.cita.create({
+          data: {
+            pacienteId: dto.pacienteId,
+            medicoId: dto.medicoId,
+            fechaHoraInicio: start,
+            fechaHoraFin: end,
+            motivo: dto.motivo,
+            canalOrigen: dto.canalOrigen,
+            modalidad: 'presencial',
+            creadoPor: actorId,
+          },
+          select: {
+            id: true,
+            pacienteId: true,
+            medicoId: true,
+            fechaHoraInicio: true,
+            fechaHoraFin: true,
+            estado: true,
+            canalOrigen: true,
+            modalidad: true,
+          },
+        });
+        await tx.bitacoraAuditoria.create({
+          data: {
+            usuarioId: actorId,
+            accion: 'CREATE_CITA',
+            recurso: `agenda/appointments/${appointment.id}`,
+            ipOrigen: ip,
+          },
+        });
+        return appointment;
+      },
+      { isolationLevel: 'ReadCommitted' },
+    );
+  }
 
   async availability(dto: AvailabilityDto, actorId: number, ip?: string) {
     // Lima uses UTC-05:00 year-round. Weekly TIME values are wall-clock times,

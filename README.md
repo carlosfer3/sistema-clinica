@@ -62,7 +62,7 @@ Nos encontramos en el **cierre del Entregable 1 (Semana 8)** y en el **arranque 
   * Wireframes de agendamiento, alertas y HCE unificada.
 * **Implementado en backend:** conexión Prisma, prefijo `/api`, validación de DTO, CORS configurable, login JWT, permisos por rol y auditoría explícita en servicios y guard. Registro de pacientes sin cuenta de portal, antecedentes/alergias, búsqueda por documento o nombre y consulta de ficha. Los hashes nunca se devuelven en la API.
 * **Integridad en PostgreSQL:** migraciones con anulación justificada, bloqueo de borrado físico de consultas, antecedentes y alergias, bitácora append-only y exclusión de horarios solapados por médico. Las restricciones SQL complementan el esquema Prisma.
-* **Pendiente:** interfaz clínica (el frontend aún muestra la plantilla), reserva de citas HU01/HU05, CIE-10/recetas/signos vitales/HCE cronológica, notificaciones, respaldo/restauración, Swagger y CI/CD. HU01 ya cuenta con horarios y consulta de disponibilidad. HU06, HU07 y HU17 tienen avance de backend; ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
+* **Pendiente:** interfaz clínica (el frontend aún muestra la plantilla), interfaz de agenda HU01/HU05, CIE-10/recetas/signos vitales/HCE cronológica, notificaciones, respaldo/restauración, Swagger y CI/CD. HU01 ya cuenta con horarios, consulta de disponibilidad y reserva transaccional por API. HU06, HU07 y HU17 tienen avance de backend; ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
 
 ---
 
@@ -237,7 +237,7 @@ Las migraciones no corrigen datos históricos incompatibles: si ya existen citas
 
 Primera parte implementada: modelos `Consultorio` y `HorarioMedico`, con horarios semanales por médico y consultorio. Días ISO (1=lunes, 7=domingo), horas locales de `America/Lima` y duración configurable de 20 minutos por defecto. PostgreSQL rechaza cruces del mismo médico o consultorio, días inválidos, intervalos invertidos y duraciones que no caben. Los bloques adyacentes están permitidos. Horas en minutos completos, dentro del mismo día (00:00 a 23:59); sin vigencias, feriados ni excepciones por fecha todavía. Prisma representa las horas `TIME` mediante `Date` con fecha de referencia `1970-01-01` y componente horario UTC: no convertirlas usando la zona horaria del servidor.
 
-El modelo permite bloques de varias citas; la consulta de disponibilidad generará únicamente turnos completos desde `horaInicio`, dejando fuera cualquier resto menor que `duracionCitaMin`. Los horarios aún no tienen endpoints de administración; el seed de demostración permite cargar bloques ficticios. Este incremento no conecta las citas existentes con los horarios: esa validación se implementará al reservar.
+El modelo permite bloques de varias citas; la consulta de disponibilidad genera únicamente turnos completos desde `horaInicio`, dejando fuera cualquier resto menor que `duracionCitaMin`. Los horarios aún no tienen endpoints de administración; el seed de demostración permite cargar bloques ficticios. La reserva por API valida que cada cita nueva coincida con un turno completo del horario; no modifica las citas anteriores.
 
 Consulta implementada: `GET /api/agenda/availability?fecha=2026-11-09&especialidadId=1&medicoId=1`. Requiere Bearer JWT con rol `admision`, `medico` o `enfermeria`. `fecha` (YYYY-MM-DD válido) y `especialidadId` (entero positivo) son obligatorios; `medicoId` es opcional. Los IDs del ejemplo deben corresponder a los datos locales. Campos desconocidos o parámetros inválidos devuelven 400.
 
@@ -245,7 +245,25 @@ Devuelve `{ fecha, zonaHoraria: "America/Lima", especialidadId, turnos }`. Cada 
 
 La disponibilidad es informativa: no bloquea turnos y puede cambiar mientras otro usuario reserva. No contempla feriados ni excepciones por fecha. Las pruebas HTTP con persistencia simulada están en `apps/api/test/availability.e2e-spec.ts` y se ejecutan con `npm.cmd run test:e2e`; no constituyen evidencia de ejecución contra PostgreSQL real.
 
-Siguiente parte: implementar la reserva transaccional con respuesta 409 ante colisiones y su interfaz de admisión.
+Reserva implementada: `POST /api/agenda/appointments`, exclusivamente para `admision` con Bearer JWT. Ejemplo (reemplazar IDs y fecha por datos locales y un turno futuro):
+
+```json
+{
+  "pacienteId": 1,
+  "medicoId": 1,
+  "inicio": "2026-11-09T08:00:00-05:00",
+  "motivo": "Control",
+  "canalOrigen": "presencial"
+}
+```
+
+`pacienteId`, `medicoId` e `inicio` son obligatorios. El inicio requiere zona explícita (`Z` o desplazamiento), segundos cero y debe coincidir con un turno completo futuro del horario de Lima. Se acepta el instante UTC equivalente que devuelve disponibilidad. `motivo` es opcional (hasta 300 caracteres); `canalOrigen` admite `presencial` (por defecto) o `telefono`. La duración se calcula en servidor desde el horario; el cliente no puede elegir fin, estado, creador ni modalidad. Esta ruta crea citas presenciales en estado `programada`.
+
+Respuestas: 201 con ID, paciente/médico, inicio/fin UTC, estado, canal y modalidad; 400 para datos inválidos, turnos pasados o fuera de horario; 404 para paciente inexistente o médico inexistente/inactivo; 409 si una cita no cancelada ocupa total o parcialmente el intervalo. La transacción bloquea la fila del médico para serializar reservas entre procesos, vuelve a comprobar el solapamiento y guarda cita y auditoría `CREATE_CITA` juntas: si falla la auditoría, se revierte la reserva. La restricción de exclusión existente en PostgreSQL sigue protegiendo contra solapamientos. No se impide que un paciente tenga citas con médicos distintos a la misma hora.
+
+Las pruebas de `apps/api/test/integrity.db-spec.ts` verifican dos reservas HTTP simultáneas (201/409), cancelación y nueva reserva, actualización de disponibilidad, validaciones y reversión por fallo de auditoría contra un esquema PostgreSQL temporal. Ejecutar `npm.cmd run test:db` con la base de desarrollo configurada.
+
+Siguiente parte: construir la interfaz de admisión para consultar disponibilidad y reservar. Reprogramación, cancelación por API, feriados y excepciones siguen pendientes.
 
 ---
 

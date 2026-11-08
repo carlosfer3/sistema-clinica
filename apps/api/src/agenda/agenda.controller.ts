@@ -1,12 +1,23 @@
-import { Controller, Get, Ip, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, Ip, Post, Query, Req } from '@nestjs/common';
 import { Roles } from '../auth/auth.decorators.js';
 import type { AuthRequest } from '../auth/auth.types.js';
 import { AvailabilityDto } from './availability.dto.js';
 import { AgendaService } from './agenda.service.js';
+import { CreateAppointmentDto } from './create-appointment.dto.js';
 
 @Controller('agenda')
 export class AgendaController {
   constructor(private readonly agenda: AgendaService) {}
+
+  @Post('appointments')
+  @Roles('admision')
+  create(
+    @Body() dto: CreateAppointmentDto,
+    @Req() req: AuthRequest,
+    @Ip() ip: string,
+  ) {
+    return this.agenda.create(dto, req.user!.id, ip);
+  }
 
   @Get('availability')
   @Roles('admision', 'medico', 'enfermeria')

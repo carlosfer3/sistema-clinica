@@ -276,6 +276,159 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
     ).rejects.toThrow();
   });
 
+  it('reserves exactly once under concurrent HTTP requests and removes the occupied slot', async () => {
+    await db.horarioMedico.create({
+      data: {
+        medicoId: doctorId,
+        consultorioId: consultingRoomId,
+        diaSemana: 5,
+        horaInicio: new Date('1970-01-01T08:00:00Z'),
+        horaFin: new Date('1970-01-01T09:10:00Z'),
+        duracionCitaMin: 20,
+      },
+    });
+    const body = {
+      pacienteId: patientId,
+      medicoId: doctorId,
+      inicio: '2099-01-09T08:00:00-05:00',
+    };
+    const reserve = () =>
+      request(app.getHttpServer())
+        .post('/api/agenda/appointments')
+        .auth(admissionToken, { type: 'bearer' })
+        .send(body);
+    const results = await Promise.all([reserve(), reserve()]);
+    expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([
+      201, 409,
+    ]);
+    const created = results.find((r) => r.status === 201)!.body;
+    expect(created).toMatchObject({
+      pacienteId: patientId,
+      medicoId: doctorId,
+      fechaHoraInicio: '2099-01-09T13:00:00.000Z',
+      fechaHoraFin: '2099-01-09T13:20:00.000Z',
+      estado: 'programada',
+      canalOrigen: 'presencial',
+    });
+    expect(
+      await db.cita.count({
+        where: { medicoId: doctorId, fechaHoraInicio: new Date(body.inicio) },
+      }),
+    ).toBe(1);
+    expect(
+      await db.bitacoraAuditoria.count({
+        where: {
+          accion: 'CREATE_CITA',
+          recurso: `agenda/appointments/${created.id}`,
+        },
+      }),
+    ).toBe(1);
+    const doctor = await db.medico.findUniqueOrThrow({
+      where: { id: doctorId },
+    });
+    const available = await request(app.getHttpServer())
+      .get(
+        `/api/agenda/availability?fecha=2099-01-09&especialidadId=${doctor.especialidadId}`,
+      )
+      .auth(admissionToken, { type: 'bearer' })
+      .expect(200);
+    expect(
+      available.body.turnos.map((s: { inicio: string }) => s.inicio),
+    ).toEqual(['2099-01-09T13:20:00.000Z', '2099-01-09T13:40:00.000Z']);
+    await db.cita.update({
+      where: { id: created.id },
+      data: { estado: 'cancelada' },
+    });
+    await reserve().expect(201);
+  });
+
+  it('validates reservation roles, exact slots, dates, patient and active resources', async () => {
+    const body = {
+      pacienteId: patientId,
+      medicoId: doctorId,
+      inicio: '2099-01-09T08:20:00-05:00',
+    };
+    const post = (data: object) =>
+      request(app.getHttpServer())
+        .post('/api/agenda/appointments')
+        .auth(admissionToken, { type: 'bearer' })
+        .send(data);
+    await request(app.getHttpServer())
+      .post('/api/agenda/appointments')
+      .send(body)
+      .expect(401);
+    await request(app.getHttpServer())
+      .post('/api/agenda/appointments')
+      .auth(doctorToken, { type: 'bearer' })
+      .send(body)
+      .expect(403);
+    for (const change of [
+      { inicio: '2099-01-09T08:21:00-05:00' },
+      { inicio: '2099-01-09T09:00:00-05:00' },
+      { inicio: '2099-01-09T08:20:01-05:00' },
+      { inicio: '2099-01-09T08:20:00' },
+      { inicio: '2099-02-30T08:20:00Z' },
+      { inicio: '2000-01-01T08:20:00Z' },
+      { estado: 'confirmada' },
+      { canalOrigen: 'portal' },
+      { medicoId: '1' },
+    ])
+      await post({ ...body, ...change }).expect(400);
+    await post({ ...body, pacienteId: 2147483647 }).expect(404);
+    await post({ ...body, medicoId: 2147483647 }).expect(404);
+    await db.usuario.update({
+      where: { id: doctorUserId },
+      data: { activo: false },
+    });
+    try {
+      await post(body).expect(404);
+    } finally {
+      await db.usuario.update({
+        where: { id: doctorUserId },
+        data: { activo: true },
+      });
+    }
+    await db.consultorio.update({
+      where: { id: consultingRoomId },
+      data: { activo: false },
+    });
+    try {
+      await post(body).expect(400);
+    } finally {
+      await db.consultorio.update({
+        where: { id: consultingRoomId },
+        data: { activo: true },
+      });
+    }
+  });
+
+  it('rolls back the reservation if its audit insert fails', async () => {
+    await db.$executeRawUnsafe(
+      `CREATE FUNCTION reject_booking_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.accion = 'CREATE_CITA' THEN RAISE EXCEPTION 'Test audit failure'; END IF; RETURN NEW; END; $$`,
+    );
+    await db.$executeRawUnsafe(
+      'CREATE TRIGGER test_booking_audit BEFORE INSERT ON bitacora_auditoria FOR EACH ROW EXECUTE FUNCTION reject_booking_audit()',
+    );
+    const inicio = '2099-01-09T08:20:00-05:00';
+    try {
+      await request(app.getHttpServer())
+        .post('/api/agenda/appointments')
+        .auth(admissionToken, { type: 'bearer' })
+        .send({ pacienteId: patientId, medicoId: doctorId, inicio })
+        .expect(500);
+      expect(
+        await db.cita.count({
+          where: { medicoId: doctorId, fechaHoraInicio: new Date(inicio) },
+        }),
+      ).toBe(0);
+    } finally {
+      await db.$executeRawUnsafe(
+        'DROP TRIGGER test_booking_audit ON bitacora_auditoria',
+      );
+      await db.$executeRawUnsafe('DROP FUNCTION reject_booking_audit()');
+    }
+  });
+
   const time = (value: string) => new Date(`1970-01-01T${value}:00.000Z`);
 
   it('stores weekly local schedules with a default duration and accepts adjacent blocks', async () => {
