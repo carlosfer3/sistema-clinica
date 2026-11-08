@@ -124,6 +124,7 @@ export function Agenda({
 
   async function search(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!/^[0-9]{8}$/.test(query.trim())) return;
     const version = ++searchVersion.current;
     setSearching(true);
     setPatientError("");
@@ -131,7 +132,7 @@ export function Agenda({
     setSearched(false);
     try {
       const data = await api<Patient[]>(
-        `/patients?${new URLSearchParams({ q: query.trim(), limit: "20" })}`,
+        `/patients?${new URLSearchParams({ q: query.trim() })}`,
         { token: session.token },
       );
       if (mounted.current && version === searchVersion.current) {
@@ -270,17 +271,19 @@ export function Agenda({
           <h2 id="patient-title">
             <span className="step">1</span> Paciente
           </h2>
-          <p className="small muted">Busca por documento, nombre o apellido.</p>
+          <p className="small muted">Ingresa el DNI completo de 8 dígitos.</p>
           <fieldset disabled={booking}>
             <form onSubmit={search} aria-busy={searching}>
               <label htmlFor="patient-search">Buscar paciente</label>
               <div className="inline-form">
                 <input
                   id="patient-search"
-                  placeholder="Documento o nombre"
+                  placeholder="DNI de 8 dígitos"
+                  inputMode="numeric"
+                  pattern="[0-9]{8}"
                   value={query}
-                  maxLength={100}
-                  minLength={2}
+                  maxLength={8}
+                  minLength={8}
                   required
                   onChange={(e) => {
                     setQuery(e.target.value);
@@ -292,7 +295,7 @@ export function Agenda({
                 />
                 <button
                   className="secondary"
-                  disabled={searching || query.trim().length < 2}
+                  disabled={searching || !/^[0-9]{8}$/.test(query.trim())}
                 >
                   Buscar
                 </button>
@@ -310,7 +313,7 @@ export function Agenda({
             )}
             {searched && patients.length === 0 && (
               <p role="status" className="empty small">
-                No se encontraron pacientes. Prueba con otro documento o nombre.
+                No se encontró un paciente con ese DNI. Verifica los 8 dígitos.
                 El registro de pacientes se realiza por API en esta versión.
               </p>
             )}
@@ -340,8 +343,7 @@ export function Agenda({
                   </button>
                 ))}
                 <p className="small muted">
-                  Hasta 20 resultados. Refina la búsqueda si no encuentras al
-                  paciente.
+                  Coincidencia exacta por DNI.
                 </p>
               </div>
             )}

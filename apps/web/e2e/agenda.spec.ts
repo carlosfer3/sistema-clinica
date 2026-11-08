@@ -151,7 +151,7 @@ test("discards the session and selected patient when the API returns 401", async
   await page.route("**/api/patients?*", (route) =>
     route.fulfill({ status: 401, json: {} }),
   );
-  await page.getByLabel("Buscar paciente").fill("Prueba");
+  await page.getByLabel("Buscar paciente").fill("87654321");
   await page.getByRole("button", { name: "Buscar", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Bienvenido de nuevo" }),
@@ -174,11 +174,11 @@ test("does not retain stale search results when the query changes during a reque
     await gate;
     await route.fulfill({ json: [patient] });
   });
-  await page.getByLabel("Buscar paciente").fill("Ficticio");
+  await page.getByLabel("Buscar paciente").fill("87654321");
   const requested = page.waitForRequest("**/api/patients?*");
   await page.getByRole("button", { name: "Buscar", exact: true }).click();
   await requested;
-  await page.getByLabel("Buscar paciente").fill("Otro");
+  await page.getByLabel("Buscar paciente").fill("12345678");
   const responded = page.waitForResponse("**/api/patients?*");
   release();
   await responded;
@@ -212,10 +212,10 @@ test("shows empty patient results without allowing a reservation", async ({
 }) => {
   await login(page);
   await page.route("**/api/patients?*", (route) => route.fulfill({ json: [] }));
-  await page.getByLabel("Buscar paciente").fill("Sin coincidencias");
+  await page.getByLabel("Buscar paciente").fill("12345678");
   await page.getByRole("button", { name: "Buscar", exact: true }).click();
   await expect(
-    page.getByText("No se encontraron pacientes.", { exact: false }),
+    page.getByText("No se encontró un paciente con ese DNI.", { exact: false }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Confirmar reserva" }),
@@ -291,3 +291,22 @@ test("retries a failed catalog load and handles a catalog without schedules", as
     page.getByRole("button", { name: "Consultar turnos" }),
   ).toBeDisabled();
 });
+
+test('only searches for a complete DNI and sends no name or pagination filter', async ({ page }) => {
+  await login(page)
+  let requests = 0
+  await page.route('**/api/patients?*', route => {
+    requests++
+    const params = new URL(route.request().url()).searchParams
+    expect(params.get('q')).toBe('87654321')
+    expect(params.has('limit')).toBe(false)
+    return route.fulfill({ json: [patient] })
+  })
+  const input = page.getByLabel('Buscar paciente', { exact: true })
+  const button = page.getByRole('button', { name: 'Buscar', exact: true })
+  await input.fill('Prueba'); await expect(button).toBeDisabled()
+  await input.fill('8765432'); await expect(button).toBeDisabled()
+  await input.fill('87654321'); await expect(button).toBeEnabled()
+  await button.click(); await expect(page.getByRole('button', { name: /Paciente Ficticio DNI/ })).toBeVisible()
+  expect(requests).toBe(1)
+})

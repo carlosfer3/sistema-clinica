@@ -75,7 +75,7 @@ No se declara ninguna historia terminada hasta completar criterios de aceptació
   * Arquitectura de software modelada bajo el estándar C4 (Contexto, Contenedores y Componentes).
   * Modelo de Base de Datos relacional normalizado con soporte DDL de borrado lógico (`ck_consulta_anulacion`), diagramas ER y scripts SQL.
   * Wireframes de agendamiento, alertas y HCE unificada.
-* **Implementado en backend:** conexión Prisma, prefijo `/api`, validación de DTO, CORS configurable, login JWT, permisos por rol y auditoría explícita en servicios y guard. Registro de pacientes sin cuenta de portal, solo con datos demográficos y de contacto, búsqueda por documento o nombre y consulta de ficha. Los hashes nunca se devuelven en la API.
+* **Implementado en backend:** conexión Prisma, prefijo `/api`, validación de DTO, CORS configurable, login JWT, permisos por rol y auditoría explícita en servicios y guard. Registro de pacientes sin cuenta de portal, solo con datos demográficos y de contacto, búsqueda por DNI exacto y consulta de ficha. Los hashes nunca se devuelven en la API.
 * **Integridad en PostgreSQL:** migraciones con anulación justificada, bloqueo de borrado físico de consultas, antecedentes y alergias, bitácora append-only y exclusión de horarios solapados por médico. Las restricciones SQL complementan el esquema Prisma.
 * **Interfaz de admisión implementada:** acceso con cuenta de admisión, búsqueda y selección de pacientes, catálogo de especialidades/médicos, consulta de disponibilidad, confirmación de reserva, listado del día y registro de llegada. Maneja turnos ocupados (409) y pérdida de sesión (401). Ver [guía de la interfaz](apps/web/ADMISSION.md).
 * **Pendiente:** interfaz clínica, registro de pacientes desde la web, reprogramación/cancelación de citas, CIE-10/recetas/signos vitales/HCE cronológica, notificaciones, respaldo/restauración y CI/CD. HU01 cuenta con horarios, disponibilidad y reserva por API y web. HU06, HU07 y HU17 tienen avance de backend; ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
@@ -238,7 +238,7 @@ El seed rechaza `NODE_ENV=production`; verificar además que `DATABASE_URL` apun
 | `POST /api/agenda/appointments/:id/arrival` | admision | Registra llegada de una cita presencial del día en Lima; no cambia su estado. |
 | `GET /api/agenda/nursing-queue?pagina=1&limite=50` | enfermeria | Pacientes de hoy con llegada registrada y preparación pendiente, sin información clínica. |
 | `POST /api/patients` | admision | Registra únicamente datos demográficos y de contacto; rechaza antecedentes y alergias con 400; documento duplicado devuelve 409 y `patientId`. |
-| `GET /api/patients?q=texto&limit=20` | admision, medico, enfermeria | Busca por documento, nombres o apellidos; máximo 100 resultados; sin campos clínicos. |
+| `GET /api/patients?q=87654321` | admision, medico, enfermeria | Busca únicamente por DNI exacto de 8 dígitos; cero o un resultado; sin campos clínicos. |
 | `GET /api/patients/:id` | admision, medico, enfermeria | Ficha demográfica. |
 | `GET /api/patients/:id/clinical-profile` | medico | Ficha con antecedentes y alergias; todavía no es la HCE cronológica de HU03. |
 
@@ -381,3 +381,7 @@ Después de iniciar sesión, elegir **Citas del día**. La pantalla muestra las 
 API: `GET /api/agenda/appointments`, exclusiva de `admision`, auditada como `READ_DAILY_APPOINTMENTS`. Usa el día actual del servidor en `America/Lima`; admite `pagina` (1–10000, predeterminado 1), `limite` (1–100, predeterminado 50), `medicoId` y `estado`. Los parámetros desconocidos se rechazan con 400. Devuelve `{ fecha, zonaHoraria, pagina, limite, hayMas, citas }`, ordenadas por inicio e ID, con todos los estados y modalidades. No expone motivo de consulta, historial, signos vitales ni datos de contacto. Contrato completo en Swagger. No requiere migraciones adicionales.
 
 Las pruebas HTTP verifican roles, validaciones, selección de campos, fecha de Lima, filtros, paginación y fallo de auditoría. Playwright verifica confirmación de llegada, actualización, restricciones visuales, filtros, paginación, sesión, errores de conexión y ancho móvil con API simulada; la ejecución integrada con PostgreSQL sigue pendiente.
+
+### Búsqueda exclusiva por DNI
+
+`GET /api/patients?q=87654321` acepta solo DNI de 8 dígitos (mantiene ceros iniciales), con coincidencia exacta y tipo de documento `DNI`. Devuelve un arreglo vacío o un paciente. Nombres, apellidos, DNI parciales y filtros como `limit` se rechazan con 400. La web habilita **Buscar** solo al completar los 8 dígitos. El paciente debe haberse registrado previamente en la misma base de datos usada por la API; no se crea automáticamente al buscarlo.

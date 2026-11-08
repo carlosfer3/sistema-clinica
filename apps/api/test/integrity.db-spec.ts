@@ -189,15 +189,37 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
     expect(await db.paciente.count()).toBe(1);
   });
 
-  it('searches by document and partial name without disclosing clinical fields', async () => {
-    for (const q of ['87654321', 'ficticio', 'prueba']) {
+  it('searches only by exact DNI without disclosing clinical fields', async () => {
+    for (const q of ['87654321', ' 87654321 ']) {
       const response = await request(app.getHttpServer())
-        .get(`/api/patients?q=${q}`)
+        .get(`/api/patients?${new URLSearchParams({ q })}`)
         .set('Authorization', `Bearer ${admissionToken}`)
         .expect(200);
       expect(response.body).toHaveLength(1);
       expect(response.body[0].id).toBe(patientId);
       expect(response.body[0]).not.toHaveProperty('alergias');
+    }
+  });
+
+  it('does not return another document type or a partial/name match', async () => {
+    await db.paciente.create({
+      data: {
+        ...patient,
+        tipoDocumento: 'CE',
+        numeroDocumento: '12345678',
+        fechaNacimiento: new Date(patient.fechaNacimiento),
+      },
+    });
+    const result = await request(app.getHttpServer())
+      .get('/api/patients?q=12345678')
+      .auth(admissionToken, { type: 'bearer' })
+      .expect(200);
+    expect(result.body).toEqual([]);
+    for (const q of ['8765', 'ficticio', 'prueba']) {
+      await request(app.getHttpServer())
+        .get(`/api/patients?q=${q}`)
+        .auth(admissionToken, { type: 'bearer' })
+        .expect(400);
     }
   });
 

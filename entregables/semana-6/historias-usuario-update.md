@@ -62,13 +62,15 @@ Como personal de admisión, quiero registrar un paciente único con sus datos de
 
 ---
 #### HU07 (3 pts) 
-Como personal de admisión, quiero buscar al paciente por DNI o nombre y abrir su ficha, para no volver a pedirle sus datos.
+Como personal de admisión, quiero buscar al paciente por DNI exacto y abrir su ficha, para no volver a pedirle sus datos.
 
-Dado que el paciente está registrado, cuando busco por DNI o parte del nombre, entonces el sistema muestra las coincidencias y, al elegir una, abre su ficha demográfica y de contacto, sin mostrar información clínica ni pedir los datos nuevamente.
+Dado que el paciente está registrado, cuando busco por DNI completo de 8 dígitos, entonces el sistema muestra las coincidencias y, al elegir una, abre su ficha demográfica y de contacto, sin mostrar información clínica ni pedir los datos nuevamente.
 
-**Cumple INVEST:** solo requiere que existan pacientes registrados (Independiente); se puede negociar si la búsqueda por nombre es exacta o parcial (Negociable); agiliza la recepción y la agenda, y evita repreguntar datos al paciente (Valiosa); se estimó en 3 puntos por ser una consulta sobre campos indexados (Estimable); y es pequeña y testeable con búsquedas por DNI y por nombre (Pequeña y Testeable).
+**Cumple INVEST:** solo requiere que existan pacientes registrados (Independiente); la presentación de la ficha es negociable, manteniendo búsqueda exacta y exclusiva por DNI (Negociable); agiliza la recepción y la agenda, y evita repreguntar datos al paciente (Valiosa); se estimó en 3 puntos por ser una consulta sobre campos indexados (Estimable); y es pequeña y testeable con búsquedas exactas por DNI y rechazo de nombres o DNI incompletos (Pequeña y Testeable).
 
 ---
+> **Búsqueda de HU07:** solo DNI completo de 8 dígitos, coincidencia exacta y `tipoDocumento=DNI`. Nombres, apellidos y DNI parciales se rechazan con 400. Sin coincidencia devuelve `[]`; no busca usuarios ni otros tipos de documento.
+
 #### HU08 (8 pts) 
 Como médico tratante, quiero registrar la consulta con diagnóstico CIE-10, indicaciones y receta, para dejar documentado el episodio de atención.
 

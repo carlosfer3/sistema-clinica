@@ -231,11 +231,13 @@ Como personal de admisión, quiero registrar un paciente único con sus datos de
 
 **Cumplimiento INVEST:** Alta verificable sin depender del registro clínico (I). Campos demográficos y de contacto negociables (N). Evita duplicados y permite gestionar citas (V). Se conservan 3 puntos (E). Verificable con altas, duplicados y rechazo de datos clínicos (S/T).
 
-#### **HU07 (3 pts)**: Buscar paciente por DNI o nombre y abrir ficha
-* **Historia:** Como personal de admisión, quiero buscar al paciente por DNI o nombre y abrir su ficha, para no volver a pedirle sus datos.
+#### **HU07 (3 pts)**: Buscar paciente por DNI exacto y abrir ficha
+* **Historia:** Como personal de admisión, quiero buscar al paciente por DNI exacto y abrir su ficha, para no volver a pedirle sus datos.
 * **Criterio de Aceptación:**
-  * *Dado* que el paciente está registrado, *cuando* busco por DNI o parte del nombre, *entonces* el sistema muestra las coincidencias y, al elegir una, abre su ficha demográfica y de contacto, sin mostrar información clínica ni pedir los datos nuevamente.
-* **Cumplimiento INVEST:** Independiente (I); búsqueda parcial negociable (N); agiliza atención (V); 3 pts sobre índices (E); testeable (S/T).
+  * *Dado* que el paciente está registrado, *cuando* busco por DNI completo de 8 dígitos, *entonces* el sistema muestra las coincidencias y, al elegir una, abre su ficha demográfica y de contacto, sin mostrar información clínica ni pedir los datos nuevamente.
+* **Cumplimiento INVEST:** Independiente (I); presentación negociable; búsqueda exclusiva por DNI exacto (N); agiliza atención (V); 3 pts sobre índices (E); testeable (S/T).
+
+> **Búsqueda de HU07:** solo DNI completo de 8 dígitos, coincidencia exacta y `tipoDocumento=DNI`. Nombres, apellidos y DNI parciales se rechazan con 400. Sin coincidencia devuelve `[]`; no busca usuarios ni otros tipos de documento.
 
 #### **HU08 (8 pts)**: Registrar consulta con diagnóstico CIE-10, indicaciones y receta
 * **Historia:** Como médico tratante, quiero registrar la consulta con diagnóstico CIE-10, indicaciones y receta, para dejar documentado el episodio de atención.
@@ -325,7 +327,7 @@ Como personal de enfermería, quiero seleccionar una cita pendiente de evaluaci�
 | **HU04** | Consultar pacientes pendientes de evaluación previa | M1 | Sprint 1 | Must | 5 |
 | **HU05** | Reprogramar o cancelar cita | M2 | Sprint 1 | Must | 3 |
 | **HU06** | Registrar datos demográficos y de contacto del paciente | M1 | Sprint 1 | Must | 3 |
-| **HU07** | Buscar paciente por DNI o nombre y abrir ficha | M1 | Sprint 1 | Must | 3 |
+| **HU07** | Buscar paciente por DNI exacto y abrir ficha | M1 | Sprint 1 | Must | 3 |
 | **HU08** | Registrar consulta con diagnóstico CIE-10, indicaciones y receta | M1 | Sprint 1 | Must | 8 |
 | **HU09** | Anular entrada de historia clínica con motivo | M1 | Sprint 1 | Must | 3 |
 | **HU10** | Registrar signos vitales y observaciones de enfermería | M1 | Sprint 1 | Must | 3 |
@@ -631,7 +633,7 @@ Este flujo corresponde a HU16. La demostración del Sprint 1 usa admisión, enfe
 
 | Sprint | Semanas | Alcance funcional y técnico | Estimación |
 | :---: | :---: | :--- | :---: |
-| **Sprint 1** | Semanas 9 – 11 | **Módulos M1 y M2 completos, más historias transversales de seguridad y respaldo:**<br>• **M1 (HCE):** HU06 (datos demográficos y de contacto), HU07 (búsqueda DNI/nombre), HU08 (consulta con CIE-10/receta), HU09 (anular con motivo), HU10 (signos vitales), HU04 (pacientes pendientes de evaluación previa), HU03 (HCE unificada).<br>• **M2 (Agenda) y Notificaciones:** HU01 (agendar con disponibilidad), HU05 (reprogramar/cancelar), HU02 (recordatorio 24h), HU11 (confirmación).<br>• **Transversales:** HU17 (RBAC y auditoría Ley 29733) y HU18 (respaldo y restauración).<br><br>*Objetivo:* Dejar operativo el flujo núcleo clínico (RF01–RF09) sin borrado físico y con trazabilidad completa. | **13 historias**<br>**58 puntos** |
+| **Sprint 1** | Semanas 9 – 11 | **Módulos M1 y M2 completos, más historias transversales de seguridad y respaldo:**<br>• **M1 (HCE):** HU06 (datos demográficos y de contacto), HU07 (búsqueda por DNI exacto), HU08 (consulta con CIE-10/receta), HU09 (anular con motivo), HU10 (signos vitales), HU04 (pacientes pendientes de evaluación previa), HU03 (HCE unificada).<br>• **M2 (Agenda) y Notificaciones:** HU01 (agendar con disponibilidad), HU05 (reprogramar/cancelar), HU02 (recordatorio 24h), HU11 (confirmación).<br>• **Transversales:** HU17 (RBAC y auditoría Ley 29733) y HU18 (respaldo y restauración).<br><br>*Objetivo:* Dejar operativo el flujo núcleo clínico (RF01–RF09) sin borrado físico y con trazabilidad completa. | **13 historias**<br>**58 puntos** |
 | **Sprint 2** | Semanas 12 – 14 | **Módulos M3, M4, M5 y M6 completos:**<br>• **M3 (Laboratorio e imágenes):** HU12 (generar orden), HU13 (resultado digital).<br>• **M4 (Facturación y convenios):** HU14 (convenio y copago en cobro).<br>• **M5 (Reportes gerenciales):** HU15 (ocupación, esperas e inasistencia).<br>• **M6 (Portal del paciente):** HU16 (agendamiento en línea).<br><br>*Objetivo:* Eliminar el papel en laboratorio, visibilizar convenios en caja, métricas de gestión y canal de autoservicio. | **5 historias**<br>**25 puntos** |
 
 ---
@@ -643,7 +645,7 @@ Este flujo corresponde a HU16. La demostración del Sprint 1 usa admisión, enfe
 | **HU08** | Registrar consulta con diagnóstico CIE-10, indicaciones y receta | Jhostin Leonardo Rodríguez Neyra | 8 | Por hacer |
 | **HU09** | Anular entrada de la historia clínica indicando el motivo | Jhostin Leonardo Rodríguez Neyra | 3 | Por hacer |
 | **HU06** | Registrar datos demográficos y de contacto del paciente | Rafael Olivos Gallardo | 3 | Por hacer |
-| **HU07** | Buscar paciente por DNI o nombre y abrir ficha | Rafael Olivos Gallardo | 3 | Por hacer |
+| **HU07** | Buscar paciente por DNI exacto y abrir ficha | Rafael Olivos Gallardo | 3 | Por hacer |
 | **HU03** | Ver historia clínica unificada cronológica | Rafael Olivos Gallardo | 8 | Por hacer |
 | **HU04** | Consultar pacientes pendientes de evaluación previa | Rafael Olivos Gallardo | 5 | Por hacer |
 | **HU10** | Registrar signos vitales y observaciones de enfermería | Rafael Olivos Gallardo | 3 | Por hacer |
@@ -673,7 +675,7 @@ El total correcto del Sprint 1 es **58 puntos** (13 historias); la cifra anterio
 | Base técnica | Prisma integrado, configuración, prefijo `/api`, DTO, CORS y cierre de conexiones | Validación del equipo en contenedores y pipeline |
 | HU17 | Login JWT, rol/estado consultados en cada petición, denegaciones auditadas y acceso clínico restringido | Integrar auditoría en futuras operaciones de HCE, matriz completa, revisión por PR |
 | HU06 | API de registro con documento único, DNI de 8 dígitos, antecedentes (incluye crónicas) y alergias; paciente sin cuenta de portal | Adecuar HU06: rechazar campos clínicos en admisión; interfaz, Swagger y DoD completa |
-| HU07 | API de búsqueda por documento/nombres/apellidos y ficha demográfica; perfil clínico para médico/enfermería (comportamiento anterior al ajuste de permisos) | Retirar acceso clínico de enfermería; interfaz y HCE cronológica (HU03) |
+| HU07 | API de búsqueda por DNI exacto y ficha demográfica; perfil clínico para médico/enfermería (comportamiento anterior al ajuste de permisos) | Retirar acceso clínico de enfermería; interfaz y HCE cronológica (HU03) |
 | HU01/HU05 | Restricción PostgreSQL para intervalos válidos y evitar solapamientos de citas por médico. Modelo semanal de horarios por médico y consultorio, con duración configurable y protección contra cruces | API de disponibilidad, reservas/reprogramaciones/cancelaciones e interfaz |
 | HU09 | CHECK de anulación y triggers contra DELETE/TRUNCATE de consultas | Endpoint de anulación, autorización e interfaz |
 

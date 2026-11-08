@@ -46,10 +46,10 @@ export class PatientsController {
     return this.patients.create(dto, req.user!.id, ip);
   }
 
-  @ApiContract('Buscar pacientes', 'Patient', {
+  @ApiContract('Buscar paciente por DNI', 'Patient', {
     array: true,
     description:
-      'Admisión, médico y enfermería. Busca por documento, nombres o apellidos; solo datos demográficos y de contacto, sin información clínica.',
+      'Admisión, médico y enfermería. Busca únicamente por DNI completo de 8 dígitos y coincidencia exacta; devuelve cero o un paciente. Solo datos demográficos y de contacto, sin información clínica.',
     errors: { 400: 'Consulta inválida o campos desconocidos.' },
   })
   @Get()

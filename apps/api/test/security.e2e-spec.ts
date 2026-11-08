@@ -61,7 +61,9 @@ describe('Authentication, roles and validation (HTTP, mocked database)', () => {
   });
 
   it('rejects requests without a token and audits the denial', async () => {
-    await request(app.getHttpServer()).get('/api/patients?q=123').expect(401);
+    await request(app.getHttpServer())
+      .get('/api/patients?q=87654321')
+      .expect(401);
     expect(auditCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ accion: 'UNAUTHENTICATED' }),
@@ -71,7 +73,7 @@ describe('Authentication, roles and validation (HTTP, mocked database)', () => {
 
   it('rejects a tampered token', async () => {
     await request(app.getHttpServer())
-      .get('/api/patients?q=123')
+      .get('/api/patients?q=87654321')
       .set('Authorization', 'Bearer invalid')
       .expect(401);
   });
@@ -79,7 +81,7 @@ describe('Authentication, roles and validation (HTTP, mocked database)', () => {
   it('rejects an expired token', async () => {
     const token = await jwt.signAsync({ sub: 1 }, { expiresIn: -1 });
     await request(app.getHttpServer())
-      .get('/api/patients?q=123')
+      .get('/api/patients?q=87654321')
       .set('Authorization', `Bearer ${token}`)
       .expect(401);
   });
@@ -88,7 +90,7 @@ describe('Authentication, roles and validation (HTTP, mocked database)', () => {
     findUnique.mockResolvedValue({ id: 1, rol: 'admision', activo: false });
     const token = await jwt.signAsync({ sub: 1 });
     await request(app.getHttpServer())
-      .get('/api/patients?q=123')
+      .get('/api/patients?q=87654321')
       .set('Authorization', `Bearer ${token}`)
       .expect(401);
   });
@@ -163,8 +165,25 @@ describe('Authentication, roles and validation (HTTP, mocked database)', () => {
   it('validates queries and rejects unknown fields', async () => {
     const token = await jwt.signAsync({ sub: 1 });
     await request(app.getHttpServer())
-      .get('/api/patients?q=123&extra=true')
+      .get('/api/patients?q=87654321&extra=true')
       .set('Authorization', `Bearer ${token}`)
+      .expect(400);
+    expect(patientFindMany).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'Prueba',
+    'Paciente',
+    '123',
+    '123456789',
+    'AB123456',
+    '8765 432',
+    '',
+  ])('rejects searches without a complete DNI: %s', async (q) => {
+    const token = await jwt.signAsync({ sub: 1 });
+    await request(app.getHttpServer())
+      .get(`/api/patients?${new URLSearchParams({ q })}`)
+      .auth(token, { type: 'bearer' })
       .expect(400);
     expect(patientFindMany).not.toHaveBeenCalled();
   });
@@ -172,11 +191,14 @@ describe('Authentication, roles and validation (HTTP, mocked database)', () => {
   it('allows admission to search and audits before returning demographics', async () => {
     const token = await jwt.signAsync({ sub: 1 });
     await request(app.getHttpServer())
-      .get('/api/patients?q=123&limit=5')
+      .get('/api/patients?q=87654321')
       .set('Authorization', `Bearer ${token}`)
       .expect(200, []);
     expect(patientFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 5 }),
+      expect.objectContaining({
+        where: { tipoDocumento: 'DNI', numeroDocumento: '87654321' },
+        take: 1,
+      }),
     );
     expect(auditCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -189,7 +211,7 @@ describe('Authentication, roles and validation (HTTP, mocked database)', () => {
     auditCreate.mockRejectedValueOnce(new Error('Audit unavailable'));
     const token = await jwt.signAsync({ sub: 1 });
     await request(app.getHttpServer())
-      .get('/api/patients?q=123')
+      .get('/api/patients?q=87654321')
       .set('Authorization', `Bearer ${token}`)
       .expect(500);
     expect(patientFindMany).not.toHaveBeenCalled();

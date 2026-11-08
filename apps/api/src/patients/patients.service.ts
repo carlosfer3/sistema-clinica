@@ -97,16 +97,9 @@ export class PatientsService {
     // Audit before returning data, without storing names or document numbers in logs.
     await this.audit.record(actorId, 'SEARCH_PATIENTS', 'patients', ip);
     return this.prisma.paciente.findMany({
-      where: {
-        OR: [
-          { numeroDocumento: { contains: dto.q, mode: 'insensitive' } },
-          { nombres: { contains: dto.q, mode: 'insensitive' } },
-          { apellidos: { contains: dto.q, mode: 'insensitive' } },
-        ],
-      },
+      where: { tipoDocumento: 'DNI', numeroDocumento: dto.q },
       select: demographics,
-      take: dto.limit,
-      orderBy: [{ apellidos: 'asc' }, { id: 'asc' }],
+      take: 1,
     });
   }
 

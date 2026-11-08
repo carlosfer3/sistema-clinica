@@ -1,17 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   IsDateString,
   IsEmail,
   IsIn,
-  IsInt,
   IsOptional,
   IsString,
   Matches,
-  Max,
   MaxLength,
-  Min,
-  MinLength,
 } from 'class-validator';
 
 export class CreatePatientDto {
@@ -91,29 +87,15 @@ export class SearchPatientsDto {
     typeof value === 'string' ? value.trim() : value,
   )
   @IsString()
-  @MinLength(2)
-  @MaxLength(100)
+  @Matches(/^[0-9]{8}$/)
   @ApiProperty({
     type: String,
-    minLength: 2,
-    maxLength: 100,
+    minLength: 8,
+    maxLength: 8,
+    pattern: '^[0-9]{8}$',
     description:
-      'Documento, nombres o apellidos; se eliminan espacios en los extremos.',
-    example: 'Prueba',
+      'DNI completo de 8 dígitos; coincidencia exacta y tipo de documento DNI. Se eliminan espacios externos.',
+    example: '87654321',
   })
   q: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  @ApiPropertyOptional({
-    type: Number,
-    minimum: 1,
-    maximum: 100,
-    default: 20,
-    required: false,
-  })
-  limit = 20;
 }
