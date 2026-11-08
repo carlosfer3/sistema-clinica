@@ -58,8 +58,8 @@ export function Nursing({ session, onExpired, onBusyChange }: { session: Session
       if (cause instanceof ApiError && cause.status === 401) { onExpired(); return }
       if (cause instanceof ApiError && [404, 409].includes(cause.status)) { reload(); setNotice('La cita ya no está pendiente de evaluación. Actualizamos la lista; no se sobrescribió ningún registro.') }
       else if (cause instanceof ApiError && cause.status === 400) setError('Revisa las mediciones y confirma que la cita corresponde a hoy. No se guardó la evaluación.')
-      else if (cause instanceof ApiError && cause.status === 403) setError('Tu cuenta no tiene permiso para registrar signos vitales.')
-      else { setSelected(null); setError('No se pudo confirmar el resultado. Actualiza la lista para comprobar si se completó la preparación antes de volver a registrar. No se reintentará automáticamente.') }
+      else if (cause instanceof ApiError && cause.status === 403) { setSelected(null); setQueue(null); setError('Tu cuenta no tiene permiso para registrar signos vitales.') }
+      else { setSelected(null); setQueue(null); setError('No se pudo confirmar el resultado. Actualiza la lista para comprobar si se completó la preparación antes de volver a registrar. No se reintentará automáticamente.') }
     } finally {
       lock.current = false
       if (mounted.current) { setSaving(false); onBusyChange(false) }
