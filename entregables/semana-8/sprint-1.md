@@ -251,7 +251,11 @@ Como personal de admisión, quiero registrar un paciente único con sus datos de
 
 #### **HU10 (3 pts)**: Registrar signos vitales y observaciones de enfermería
 
-Como personal de enfermería, quiero registrar los signos vitales y observaciones de la evaluación previa del paciente, para que el médico disponga de esa información al iniciar la consulta.
+Como personal de enfermería, quiero seleccionar una cita pendiente de evaluación y registrar los signos vitales y observaciones del paciente, para que el médico disponga de esa información al iniciar la consulta.
+
+**Precondiciones:** cita presencial del día actual en Lima, asistencia registrada por admisión y paciente esperando en sala, con preparación pendiente. En el sistema, llegada registrada y preparación pendiente representan la espera para evaluación previa.
+
+**Postcondiciones:** signos vitales guardados y asociados a la cita y al paciente, con autor, fecha y hora del servidor; preparación completada y retirada de la lista de pendientes; información disponible para el médico asignado, sin marcar la cita como atendida. Enfermería no obtiene acceso al historial médico.
 
 **Criterios de aceptación:**
 

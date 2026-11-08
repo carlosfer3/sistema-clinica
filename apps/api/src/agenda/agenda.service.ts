@@ -1,3 +1,4 @@
+import { VitalSignsDto } from './vital-signs.dto.js';
 import { NursingQueueDto } from './nursing-queue.dto.js';
 import {
   BadRequestException,
@@ -210,6 +211,108 @@ export class AgendaService {
       },
       { isolationLevel: 'ReadCommitted' },
     );
+  }
+
+  async recordVitalSigns(
+    id: number,
+    dto: VitalSignsDto,
+    actorId: number,
+    ip?: string,
+  ) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM cita WHERE id = ${id} FOR UPDATE`;
+        const appointment = await tx.cita.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            fechaHoraInicio: true,
+            estado: true,
+            modalidad: true,
+            llegadaEn: true,
+            preparacionCompletadaEn: true,
+            evaluacionPrevia: { select: { id: true } },
+          },
+        });
+        if (!appointment) throw new NotFoundException('Appointment not found');
+        const now = new Date(Date.now());
+        const limaDate = (date: Date) =>
+          new Date(date.getTime() - 5 * 3600000).toISOString().slice(0, 10);
+        if (limaDate(appointment.fechaHoraInicio) !== limaDate(now)) {
+          throw new BadRequestException(
+            'Preparation requires an appointment for today in America/Lima',
+          );
+        }
+        if (
+          appointment.modalidad !== 'presencial' ||
+          !['programada', 'confirmada', 'reprogramada'].includes(
+            appointment.estado,
+          ) ||
+          !appointment.llegadaEn ||
+          appointment.llegadaEn > now ||
+          appointment.preparacionCompletadaEn ||
+          appointment.evaluacionPrevia
+        ) {
+          throw new ConflictException(
+            'Patient must have arrived and be waiting for preparation',
+          );
+        }
+        const evaluation = await tx.evaluacionPrevia.create({
+          data: {
+            citaId: id,
+            registradoPor: actorId,
+            registradoEn: now,
+            temperaturaC: dto.temperaturaC,
+            presionSistolica: dto.presionSistolica,
+            presionDiastolica: dto.presionDiastolica,
+            frecuenciaCardiaca: dto.frecuenciaCardiaca,
+            frecuenciaRespiratoria: dto.frecuenciaRespiratoria,
+            saturacionOxigeno: dto.saturacionOxigeno,
+            pesoKg: dto.pesoKg,
+            tallaCm: dto.tallaCm,
+            observaciones: dto.observaciones,
+          },
+        });
+        await tx.cita.update({
+          where: { id },
+          data: { preparacionCompletadaEn: now },
+        });
+        await tx.bitacoraAuditoria.create({
+          data: {
+            usuarioId: actorId,
+            accion: 'CREATE_VITAL_SIGNS',
+            recurso: `agenda/appointments/${id}/vital-signs`,
+            ipOrigen: ip,
+          },
+        });
+        return evaluation;
+      },
+      { isolationLevel: 'ReadCommitted' },
+    );
+  }
+
+  async readVitalSigns(id: number, actorId: number, ip?: string) {
+    await this.audit.record(
+      actorId,
+      'READ_VITAL_SIGNS',
+      `agenda/appointments/${id}/vital-signs`,
+      ip,
+    );
+    const appointment = await this.prisma.cita.findFirst({
+      where: { id, medico: { usuarioId: actorId } },
+      select: {
+        evaluacionPrevia: {
+          include: {
+            autor: { select: { id: true, nombres: true, apellidos: true } },
+          },
+        },
+      },
+    });
+    if (!appointment?.evaluacionPrevia)
+      throw new NotFoundException(
+        'Evaluation not found for the assigned doctor',
+      );
+    return appointment.evaluacionPrevia;
   }
 
   async nursingQueue(query: NursingQueueDto, actorId: number, ip?: string) {

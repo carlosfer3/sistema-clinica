@@ -1,3 +1,4 @@
+import { VitalSignsDto } from './vital-signs.dto.js';
 import { NursingQueueDto } from './nursing-queue.dto.js';
 import {
   BadRequestException,
@@ -53,6 +54,27 @@ export class AgendaController {
       );
     }
     return this.agenda.registerArrival(params.id, req.user!.id, ip);
+  }
+
+  @Post('appointments/:id/vital-signs')
+  @Roles('enfermeria')
+  recordVitalSigns(
+    @Param() params: ArrivalParamsDto,
+    @Body() dto: VitalSignsDto,
+    @Req() req: AuthRequest,
+    @Ip() ip: string,
+  ) {
+    return this.agenda.recordVitalSigns(params.id, dto, req.user!.id, ip);
+  }
+
+  @Get('appointments/:id/vital-signs')
+  @Roles('medico')
+  readVitalSigns(
+    @Param() params: ArrivalParamsDto,
+    @Req() req: AuthRequest,
+    @Ip() ip: string,
+  ) {
+    return this.agenda.readVitalSigns(params.id, req.user!.id, ip);
   }
 
   @Get('nursing-queue')

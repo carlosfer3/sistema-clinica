@@ -328,6 +328,34 @@ Este incremento implementa la API de llegada; la interfaz de admisión, la inter
 
 Parámetros opcionales: `pagina` (1–10000, por defecto 1) y `limite` (1–100, por defecto 50); los campos desconocidos o inválidos devuelven 400. Devuelve `{ fecha, zonaHoraria, pagina, limite, hayMas, pacientes }`. Cada entrada contiene `citaId`, identificación y edad del paciente, `inicio`, `llegadaEn`, médico, especialidad y `estadoPreparacion: "pendiente"`. No incluye antecedentes, alergias, indicaciones, diagnósticos, resultados, observaciones clínicas ni datos de contacto. Otros roles reciben 403.
 
-**Migración necesaria:** desde `apps/api`, ejecutar `npm.cmd run db:migrate` y `npm.cmd run prisma:generate`. La migración `20261108000100_nursing_preparation` agrega `preparacionCompletadaEn`, separado de llegada y estado de la cita. Una preparación completada requiere una llegada y no puede ser anterior a ella. Los datos existentes quedan con preparación pendiente; no se infiere una evaluación completada a partir de otros registros. HU10 incorporará el registro de signos vitales y la escritura de ese campo. Por ahora no existe una acción pública para completar la preparación.
+**Migración necesaria:** desde `apps/api`, ejecutar `npm.cmd run db:migrate` y `npm.cmd run prisma:generate`. La migración `20261108000100_nursing_preparation` agrega `preparacionCompletadaEn`, separado de llegada y estado de la cita. Una preparación completada requiere una llegada y no puede ser anterior a ella. Los datos existentes quedan con preparación pendiente; no se infiere una evaluación completada a partir de otros registros. HU10 registra los signos vitales y completa este campo en la misma transacción.
 
-Este incremento entrega la API de HU04. La interfaz de enfermería, su selección de paciente y HU10 siguen pendientes; no se declara la historia terminada.
+Este incremento entrega la API de HU04. La interfaz de enfermería y su selección visual de paciente siguen pendientes; no se declara la historia terminada.
+
+### Registro de signos vitales (HU10)
+
+`POST /api/agenda/appointments/:id/vital-signs` requiere rol `enfermeria`. Precondiciones: cita presencial de hoy en Lima, estado `programada`, `confirmada` o `reprogramada`, asistencia registrada y preparación pendiente. La llegada registrada y la preparación pendiente representan al paciente esperando en sala; no existe una comprobación física adicional desde la API.
+
+Ejemplo con datos ficticios:
+
+```json
+{
+  "temperaturaC": 36.5,
+  "presionSistolica": 120,
+  "presionDiastolica": 80,
+  "frecuenciaCardiaca": 75,
+  "frecuenciaRespiratoria": 18,
+  "saturacionOxigeno": 98,
+  "pesoKg": 65.5,
+  "tallaCm": 170,
+  "observaciones": "Observación de enfermería ficticia"
+}
+```
+
+Temperatura (°C), presión sistólica/diastólica (mmHg), frecuencia cardíaca (latidos/min), frecuencia respiratoria (respiraciones/min) y saturación (%) son obligatorias. Peso, talla y observaciones (máximo 1000 caracteres) son opcionales. Se requieren números JSON; se rechazan campos desconocidos, datos de autoría, fecha, paciente, diagnósticos o prescripciones. Los límites implementados son validaciones técnicas de entrada, no una clasificación clínica de normalidad ni un diagnóstico: temperatura 0.1–100 (1 decimal), presiones y frecuencias 1–1000 (enteros), saturación 0–100 (1 decimal), peso 0.01–2000 (2 decimales) y talla 0.1–400 (1 decimal).
+
+Devuelve 201 con la evaluación guardada. El paciente se vincula mediante su cita; autor y fecha los determina el servidor. Una transacción bloquea la cita, crea la evaluación, completa `preparacionCompletadaEn` y registra `CREATE_VITAL_SIGNS`. Si falla cualquier paso, se revierte todo. No cambia el estado de la cita a `atendida`. Otra evaluación para esa cita devuelve 409 y no sobrescribe los datos. Otros conflictos de precondición devuelven 409; cita de otro día o datos inválidos, 400; cita inexistente, 404.
+
+`GET /api/agenda/appointments/:id/vital-signs` permite únicamente al médico asignado consultar las mediciones, observaciones y autoría de esa cita, con auditoría `READ_VITAL_SIGNS`. Devuelve 404 si no hay evaluación accesible. Enfermería y admisión reciben 403; este endpoint no les da acceso al historial médico.
+
+Aplicar `npm.cmd run db:migrate` y `npm.cmd run prisma:generate` desde `apps/api`. La migración `20261108000200_nursing_vital_signs` crea `evaluacion_previa`, con una entrada por cita y conservación de los datos originales mediante bloqueo de actualización y borrado. Correcciones versionadas quedan fuera de este incremento. La interfaz de captura y la vista médica siguen pendientes.

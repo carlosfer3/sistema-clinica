@@ -694,6 +694,124 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
     ).rejects.toThrow();
   });
 
+  it('records vital signs once, removes the patient from the queue and rolls back on audit failure', async () => {
+    const now = new Date();
+    const date = new Date(now.getTime() - 5 * 3600000)
+      .toISOString()
+      .slice(0, 10);
+    const start = new Date(`${date}T16:00:00-05:00`);
+    const data = {
+      pacienteId: patientId,
+      medicoId: doctorId,
+      creadoPor: doctorUserId,
+      fechaHoraInicio: start,
+      fechaHoraFin: new Date(start.getTime() + 20 * 60000),
+      llegadaEn: now,
+    };
+    const appointment = await db.cita.create({ data });
+    const measurements = {
+      temperaturaC: 36.5,
+      presionSistolica: 120,
+      presionDiastolica: 80,
+      frecuenciaCardiaca: 75,
+      frecuenciaRespiratoria: 18,
+      saturacionOxigeno: 98,
+      observaciones: 'Observacion ficticia',
+    };
+    const path = `/api/agenda/appointments/${appointment.id}/vital-signs`;
+    const results = await Promise.all([
+      request(app.getHttpServer())
+        .post(path)
+        .auth(nurseToken, { type: 'bearer' })
+        .send(measurements),
+      request(app.getHttpServer())
+        .post(path)
+        .auth(nurseToken, { type: 'bearer' })
+        .send(measurements),
+    ]);
+    expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([201, 409]);
+    const evaluation = await db.evaluacionPrevia.findUniqueOrThrow({
+      where: { citaId: appointment.id },
+      include: { autor: true },
+    });
+    expect(evaluation).toMatchObject(measurements);
+    expect(evaluation.autor.username).toBe('nurse-test');
+    const completed = await db.cita.findUniqueOrThrow({
+      where: { id: appointment.id },
+    });
+    expect(completed.preparacionCompletadaEn).toEqual(evaluation.registradoEn);
+    expect(completed.estado).toBe('programada');
+    expect(
+      await db.bitacoraAuditoria.count({
+        where: {
+          accion: 'CREATE_VITAL_SIGNS',
+          recurso: `agenda/appointments/${appointment.id}/vital-signs`,
+        },
+      }),
+    ).toBe(1);
+    const queue = await request(app.getHttpServer())
+      .get('/api/agenda/nursing-queue?limite=100')
+      .auth(nurseToken, { type: 'bearer' })
+      .expect(200);
+    expect(
+      queue.body.pacientes.map((item: { citaId: number }) => item.citaId),
+    ).not.toContain(appointment.id);
+    const medical = await request(app.getHttpServer())
+      .get(path)
+      .auth(doctorToken, { type: 'bearer' })
+      .expect(200);
+    expect(medical.body.temperaturaC).toBe(36.5);
+    expect(medical.body.autor).not.toHaveProperty('passwordHash');
+    await request(app.getHttpServer())
+      .get(path)
+      .auth(nurseToken, { type: 'bearer' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .get(path)
+      .auth(admissionToken, { type: 'bearer' })
+      .expect(403);
+    await expect(
+      db.evaluacionPrevia.update({
+        where: { id: evaluation.id },
+        data: { temperaturaC: 37 },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      db.evaluacionPrevia.delete({ where: { id: evaluation.id } }),
+    ).rejects.toThrow();
+    const waiting = await db.cita.create({
+      data: {
+        ...data,
+        fechaHoraInicio: data.fechaHoraFin,
+        fechaHoraFin: new Date(start.getTime() + 40 * 60000),
+      },
+    });
+    await db.$executeRawUnsafe(
+      `CREATE FUNCTION reject_vitals_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.accion = 'CREATE_VITAL_SIGNS' THEN RAISE EXCEPTION 'Test audit failure'; END IF; RETURN NEW; END; $$`,
+    );
+    await db.$executeRawUnsafe(
+      'CREATE TRIGGER test_vitals_audit BEFORE INSERT ON bitacora_auditoria FOR EACH ROW EXECUTE FUNCTION reject_vitals_audit()',
+    );
+    try {
+      await request(app.getHttpServer())
+        .post(`/api/agenda/appointments/${waiting.id}/vital-signs`)
+        .auth(nurseToken, { type: 'bearer' })
+        .send(measurements)
+        .expect(500);
+      expect(
+        await db.evaluacionPrevia.count({ where: { citaId: waiting.id } }),
+      ).toBe(0);
+      expect(
+        await db.cita.findUnique({ where: { id: waiting.id } }),
+      ).toMatchObject({ preparacionCompletadaEn: null, estado: 'programada' });
+    } finally {
+      await db.$executeRawUnsafe(
+        'DROP TRIGGER test_vitals_audit ON bitacora_auditoria',
+      );
+      await db.$executeRawUnsafe('DROP FUNCTION reject_vitals_audit()');
+    }
+  });
+
   const time = (value: string) => new Date(`1970-01-01T${value}:00.000Z`);
 
   it('stores weekly local schedules with a default duration and accepts adjacent blocks', async () => {

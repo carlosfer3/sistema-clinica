@@ -64,6 +64,7 @@ model Usuario {
   citasCreadas      Cita[]              @relation("CitaCreadaPor")
   consultasAnuladas Consulta[]          @relation("ConsultaAnuladaPor")
   auditorias        BitacoraAuditoria[]
+  evaluacionesPrevias EvaluacionPrevia[]
 
   @@map("usuario")
 }
@@ -186,6 +187,7 @@ model Cita {
   medico   Medico    @relation(fields: [medicoId], references: [id])
   creador  Usuario   @relation("CitaCreadaPor", fields: [creadoPor], references: [id])
   consulta Consulta?
+  evaluacionPrevia EvaluacionPrevia?
 
   @@index([medicoId, fechaHoraInicio])
   @@map("cita")
@@ -226,4 +228,23 @@ model BitacoraAuditoria {
   usuario Usuario? @relation(fields: [usuarioId], references: [id])
 
   @@map("bitacora_auditoria")
+}
+
+model EvaluacionPrevia {
+  id Int @id @default(autoincrement())
+  citaId Int @unique @map("cita_id")
+  registradoPor Int @map("registrado_por")
+  registradoEn DateTime @default(now()) @map("registrado_en") @db.Timestamptz
+  temperaturaC Float @map("temperatura_c")
+  presionSistolica Int @map("presion_sistolica")
+  presionDiastolica Int @map("presion_diastolica")
+  frecuenciaCardiaca Int @map("frecuencia_cardiaca")
+  frecuenciaRespiratoria Int @map("frecuencia_respiratoria")
+  saturacionOxigeno Float @map("saturacion_oxigeno")
+  pesoKg Float? @map("peso_kg")
+  tallaCm Float? @map("talla_cm")
+  observaciones String? @db.VarChar(1000)
+  cita Cita @relation(fields: [citaId], references: [id], onDelete: Restrict)
+  autor Usuario @relation(fields: [registradoPor], references: [id], onDelete: Restrict)
+  @@map("evaluacion_previa")
 }
