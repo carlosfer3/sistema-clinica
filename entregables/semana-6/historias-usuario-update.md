@@ -78,6 +78,21 @@ Dado un paciente en atención, cuando registro la consulta con al menos un diagn
 
 **Cumple INVEST:** necesita que exista el paciente (HU06), pero se construye y prueba por sí sola (Independiente); el catálogo CIE-10 y el formato de la receta se negocian con el equipo médico (Negociable); sin consultas registradas la historia unificada de HU03 no tendría qué mostrar, por lo que es muy valiosa (Valiosa); se estimó en 8 puntos por el catálogo CIE-10 y las tres entidades asociadas (diagnóstico, indicaciones y receta) (Estimable); y se verifica con el criterio definido (Pequeña y Testeable).
 
+
+**Receta manual — alcance de la primera versión (pendiente de implementación):**
+
+El médico puede registrar una consulta sin receta o agregar uno o varios medicamentos. Para cada medicamento escribe manualmente nombre, dosis, vía de administración, frecuencia y duración; las indicaciones adicionales son opcionales. Cada medicamento se almacena como un elemento independiente, vinculado a la receta y a la consulta, conservando la asociación con el paciente y la autoría médica. La fecha y el autor se determinan en el servidor. No hay catálogo ni autocompletado en esta versión.
+
+**Criterios de aceptación de la receta:**
+
+1. Dado un médico tratante que registra la consulta de un paciente, cuando agrega uno o varios medicamentos con nombre, dosis, vía, frecuencia y duración completos, entonces el sistema guarda cada elemento y su asociación con la consulta, el paciente, el médico y la fecha de registro.
+2. Dado un medicamento agregado, cuando falta alguno de sus campos obligatorios o contiene solo espacios, entonces el sistema rechaza el registro e identifica los campos que requieren corrección, sin guardar una receta incompleta.
+3. Dada una consulta válida, cuando el médico no indica medicamentos, entonces puede guardarla sin receta.
+4. Dado un usuario de admisión o enfermería, cuando intenta crear o modificar una receta, entonces el sistema rechaza y audita la acción. Enfermería no obtiene acceso a recetas ni al historial médico.
+5. Dada una receta guardada, cuando el médico consulta el episodio de atención autorizado, entonces visualiza los medicamentos y sus indicaciones asociados a esa consulta, con autoría y fecha, sin reemplazar recetas de otros episodios.
+
+**Evolución prevista para la siguiente versión:** al escribir el nombre, se mostrarán coincidencias de un catálogo para seleccionar un medicamento; el médico seguirá ingresando dosis, vía, frecuencia y duración. El diseño debe conservar el texto de la prescripción original, permitir asociar posteriormente un medicamento del catálogo y mantener legibles las recetas manuales previas. El catálogo, autocompletado y sus endpoints quedan fuera de la primera versión. Los 8 puntos actuales de HU08 se mantienen como estimación de referencia, sujeta a revisión al planificar la implementación.
+
 ---
 #### HU09 (3 pts) 
 Como médico tratante, quiero anular una entrada de la historia indicando el motivo, para corregir errores sin perder la evidencia.
