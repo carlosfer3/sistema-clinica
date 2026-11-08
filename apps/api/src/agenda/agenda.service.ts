@@ -1,3 +1,4 @@
+import { DailyAppointmentsDto } from './daily-appointments.dto.js';
 import { VitalSignsDto } from './vital-signs.dto.js';
 import { NursingQueueDto } from './nursing-queue.dto.js';
 import {
@@ -313,6 +314,76 @@ export class AgendaService {
         'Evaluation not found for the assigned doctor',
       );
     return appointment.evaluacionPrevia;
+  }
+
+  async dailyAppointments(
+    query: DailyAppointmentsDto,
+    actorId: number,
+    ip?: string,
+  ) {
+    const fecha = new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
+    const start = new Date(`${fecha}T00:00:00-05:00`);
+    await this.audit.record(
+      actorId,
+      'READ_DAILY_APPOINTMENTS',
+      'agenda/appointments',
+      ip,
+    );
+    const rows = await this.prisma.cita.findMany({
+      where: {
+        fechaHoraInicio: {
+          gte: start,
+          lt: new Date(start.getTime() + 86400000),
+        },
+        medicoId: query.medicoId,
+        estado: query.estado,
+      },
+      select: {
+        id: true,
+        fechaHoraInicio: true,
+        fechaHoraFin: true,
+        estado: true,
+        modalidad: true,
+        llegadaEn: true,
+        paciente: {
+          select: {
+            id: true,
+            tipoDocumento: true,
+            numeroDocumento: true,
+            nombres: true,
+            apellidos: true,
+          },
+        },
+        medico: {
+          select: {
+            id: true,
+            usuario: { select: { nombres: true, apellidos: true } },
+            especialidad: { select: { id: true, nombre: true } },
+          },
+        },
+      },
+      orderBy: [{ fechaHoraInicio: 'asc' }, { id: 'asc' }],
+      skip: (query.pagina - 1) * query.limite,
+      take: query.limite + 1,
+    });
+    return {
+      fecha,
+      zonaHoraria: 'America/Lima',
+      pagina: query.pagina,
+      limite: query.limite,
+      hayMas: rows.length > query.limite,
+      citas: rows.slice(0, query.limite).map((row) => ({
+        id: row.id,
+        inicio: row.fechaHoraInicio,
+        fin: row.fechaHoraFin,
+        estado: row.estado,
+        modalidad: row.modalidad,
+        llegadaEn: row.llegadaEn,
+        paciente: row.paciente,
+        medico: { id: row.medico.id, ...row.medico.usuario },
+        especialidad: row.medico.especialidad,
+      })),
+    };
   }
 
   async nursingQueue(query: NursingQueueDto, actorId: number, ip?: string) {

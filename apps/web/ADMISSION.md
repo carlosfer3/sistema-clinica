@@ -8,6 +8,12 @@ El flujo de agenda permite buscar pacientes existentes, consultar especialidades
 
 Antes de confirmar se muestra el paciente, médico, consultorio y horario. Una respuesta 409 elimina la selección y actualiza los turnos; una respuesta 401 descarta la sesión y los datos de la pantalla. No se reintentan automáticamente las reservas: ante un fallo de conexión o del servidor, el resultado puede ser incierto y se pide verificarlo antes de volver a reservar. Cambiar los filtros invalida los turnos anteriores. El botón de confirmación y la salida se deshabilitan mientras se envía una reserva.
 
-El registro de pacientes continúa disponible por API. La interfaz todavía no permite crear pacientes, listar citas, reprogramar, cancelar ni administrar horarios. Si no hay médicos con horarios, cargar los datos ficticios siguiendo el README de la raíz; no se crean automáticamente desde la web.
+El registro de pacientes continúa disponible por API. La interfaz todavía no permite crear pacientes, reprogramar, cancelar ni administrar horarios. Si no hay médicos con horarios, cargar los datos ficticios siguiendo el README de la raíz; no se crean automáticamente desde la web.
 
 Verificación: `npm.cmd run build`, `npm.cmd run lint` y `npm.cmd run test:e2e`. Las pruebas de navegador usan Playwright con Microsoft Edge instalado. Para otro navegador Chromium compatible, definir `PLAYWRIGHT_CHANNEL` (por ejemplo, `chrome`). Las pruebas interceptan la API y usan datos ficticios; no equivalen a una prueba integrada con PostgreSQL.
+
+## Citas del día
+
+La navegación permite alternar entre **Reservar cita** y **Citas del día**. El listado usa `GET /api/agenda/appointments` con la fecha de Lima determinada por el servidor, páginas de 20 registros y filtro por estado. No muestra información clínica. Se puede actualizar para comprobar nuevas reservas y llegadas.
+
+**Registrar llegada** muestra paciente, documento, médico y hora para confirmar identidad y presencia física antes de enviar `POST /api/agenda/appointments/:id/arrival` con `{}`. La API mantiene la validación final. Una respuesta exitosa actualiza la lista sin marcar la cita como atendida; los reintentos conservan la primera llegada. Citas virtuales, canceladas, atendidas, con inasistencia o con llegada registrada no muestran el botón. Se bloquean navegación, filtros y cierre de sesión durante el envío. Un 401 cierra la sesión; los conflictos actualizan la lista y los fallos inciertos piden comprobar el resultado sin reintentar automáticamente.

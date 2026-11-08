@@ -62,7 +62,7 @@ El incremento actual permite a admisión iniciar sesión, buscar un paciente exi
 | :--- | :--- | :--- |
 | Seguridad y auditoría (HU17) | Login JWT, control por roles, verificación de cuentas activas y auditoría. | Extender la cobertura a los módulos restantes y validar la DoD. |
 | Pacientes y base de HCE (M1; HU06/HU07 parciales) | Registro, búsqueda, ficha demográfica, antecedentes y alergias por API. | Registro desde la web, interfaz clínica, CIE-10, recetas, signos vitales e HCE cronológica. |
-| Agenda y citas (M2; HU01 parcial) | Horarios, catálogo, disponibilidad y reserva transaccional por API; reserva desde la web de admisión. | Listado, reprogramación, cancelación, administración de horarios, feriados y excepciones. |
+| Agenda y citas (M2; HU01 parcial) | Horarios, catálogo, disponibilidad y reserva transaccional por API; reserva desde la web de admisión. | Reprogramación, cancelación, administración de horarios, feriados y excepciones. |
 | Laboratorio, facturación, reportes y portal (M3–M6) | Planificados para Sprint 2; sin módulos funcionales implementados. | Implementación y validación. |
 | Infraestructura y entrega | Docker Compose para PostgreSQL y Redis; API y web locales. | Contenedores de aplicaciones, CI/CD y respaldo/restauración. |
 
@@ -77,8 +77,8 @@ No se declara ninguna historia terminada hasta completar criterios de aceptació
   * Wireframes de agendamiento, alertas y HCE unificada.
 * **Implementado en backend:** conexión Prisma, prefijo `/api`, validación de DTO, CORS configurable, login JWT, permisos por rol y auditoría explícita en servicios y guard. Registro de pacientes sin cuenta de portal, solo con datos demográficos y de contacto, búsqueda por documento o nombre y consulta de ficha. Los hashes nunca se devuelven en la API.
 * **Integridad en PostgreSQL:** migraciones con anulación justificada, bloqueo de borrado físico de consultas, antecedentes y alergias, bitácora append-only y exclusión de horarios solapados por médico. Las restricciones SQL complementan el esquema Prisma.
-* **Interfaz de admisión implementada:** acceso con cuenta de admisión, búsqueda y selección de pacientes, catálogo de especialidades/médicos, consulta de disponibilidad y confirmación de reserva. Maneja turnos ocupados (409) y pérdida de sesión (401). Ver [guía de la interfaz](apps/web/ADMISSION.md).
-* **Pendiente:** interfaz clínica, registro de pacientes desde la web, listado/reprogramación/cancelación de citas, CIE-10/recetas/signos vitales/HCE cronológica, notificaciones, respaldo/restauración y CI/CD. HU01 cuenta con horarios, disponibilidad y reserva por API y web. HU06, HU07 y HU17 tienen avance de backend; ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
+* **Interfaz de admisión implementada:** acceso con cuenta de admisión, búsqueda y selección de pacientes, catálogo de especialidades/médicos, consulta de disponibilidad, confirmación de reserva, listado del día y registro de llegada. Maneja turnos ocupados (409) y pérdida de sesión (401). Ver [guía de la interfaz](apps/web/ADMISSION.md).
+* **Pendiente:** interfaz clínica, registro de pacientes desde la web, reprogramación/cancelación de citas, CIE-10/recetas/signos vitales/HCE cronológica, notificaciones, respaldo/restauración y CI/CD. HU01 cuenta con horarios, disponibilidad y reserva por API y web. HU06, HU07 y HU17 tienen avance de backend; ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
 
 ---
 
@@ -205,7 +205,7 @@ Con la API iniciada:
 - **Contrato JSON:** [http://localhost:3000/api/openapi.json](http://localhost:3000/api/openapi.json).
 - **Contrato YAML:** [http://localhost:3000/api/openapi.yaml](http://localhost:3000/api/openapi.yaml).
 
-Los 14 endpoints actuales están documentados por módulo, con cuerpos, parámetros, restricciones, respuestas y errores. Las rutas protegidas declaran Bearer JWT y roles permitidos (`x-roles`), derivados del mismo decorador que usa el guard. La documentación es pública y no consulta PostgreSQL para generarse; las operaciones de negocio conservan sus permisos y requieren la base de datos. No se incluyen contraseñas reales, tokens ni hashes.
+Los 15 endpoints actuales están documentados por módulo, con cuerpos, parámetros, restricciones, respuestas y errores. Las rutas protegidas declaran Bearer JWT y roles permitidos (`x-roles`), derivados del mismo decorador que usa el guard. La documentación es pública y no consulta PostgreSQL para generarse; las operaciones de negocio conservan sus permisos y requieren la base de datos. No se incluyen contraseñas reales, tokens ni hashes.
 
 Para probar desde Swagger, ejecutar `POST /api/auth/login` con una cuenta local, copiar `accessToken` y pegarlo en **Authorize** (solo el token). El token no se conserva al recargar. **Try it out** ejecuta operaciones reales contra la API: usar datos ficticios del entorno de desarrollo.
 
@@ -373,3 +373,11 @@ Devuelve 201 con la evaluación guardada. El paciente se vincula mediante su cit
 `GET /api/agenda/appointments/:id/vital-signs` permite únicamente al médico asignado consultar las mediciones, observaciones y autoría de esa cita, con auditoría `READ_VITAL_SIGNS`. Devuelve 404 si no hay evaluación accesible. Enfermería y admisión reciben 403; este endpoint no les da acceso al historial médico.
 
 Aplicar `npm.cmd run db:migrate` y `npm.cmd run prisma:generate` desde `apps/api`. La migración `20261108000200_nursing_vital_signs` crea `evaluacion_previa`, con una entrada por cita y conservación de los datos originales mediante bloqueo de actualización y borrado. Correcciones versionadas quedan fuera de este incremento. La interfaz de captura y la vista médica siguen pendientes.
+
+### Citas del día y llegada desde la web de admisión
+
+Después de iniciar sesión, elegir **Citas del día**. La pantalla muestra las citas de la fecha actual de Lima, permite filtrar por estado y recorrer páginas de 20 registros. Incluye paciente/documento, médico, especialidad, horario, modalidad, estado y llegada. **Registrar llegada** abre una confirmación de identidad y presencia; al confirmar, se actualiza la lista. Citas canceladas, atendidas, con inasistencia, virtuales o con llegada registrada no ofrecen esta acción. Un fallo de conexión no reintenta la operación automáticamente; actualizar la lista permite comprobar el resultado. Durante el envío se bloquean navegación y cierre de sesión. La reserva sigue disponible en **Reservar cita**.
+
+API: `GET /api/agenda/appointments`, exclusiva de `admision`, auditada como `READ_DAILY_APPOINTMENTS`. Usa el día actual del servidor en `America/Lima`; admite `pagina` (1–10000, predeterminado 1), `limite` (1–100, predeterminado 50), `medicoId` y `estado`. Los parámetros desconocidos se rechazan con 400. Devuelve `{ fecha, zonaHoraria, pagina, limite, hayMas, citas }`, ordenadas por inicio e ID, con todos los estados y modalidades. No expone motivo de consulta, historial, signos vitales ni datos de contacto. Contrato completo en Swagger. No requiere migraciones adicionales.
+
+Las pruebas HTTP verifican roles, validaciones, selección de campos, fecha de Lima, filtros, paginación y fallo de auditoría. Playwright verifica confirmación de llegada, actualización, restricciones visuales, filtros, paginación, sesión, errores de conexión y ancho móvil con API simulada; la ejecución integrada con PostgreSQL sigue pendiente.

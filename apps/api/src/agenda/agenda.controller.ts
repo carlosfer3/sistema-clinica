@@ -1,3 +1,4 @@
+import { DailyAppointmentsDto } from './daily-appointments.dto.js';
 import { ApiBody, ApiTags } from '@nestjs/swagger';
 import { ApiContract } from '../openapi/api-contract.decorator.js';
 import { VitalSignsDto } from './vital-signs.dto.js';
@@ -34,6 +35,23 @@ export class AgendaController {
   @Roles('admision', 'medico', 'enfermeria')
   catalog(@Req() req: AuthRequest, @Ip() ip: string) {
     return this.agenda.catalog(req.user!.id, ip);
+  }
+
+  @ApiContract('Listar citas del día para admisión', 'DailyAppointments', {
+    description:
+      'Solo admisión. Día actual en America/Lima, todas las modalidades y estados. Filtros opcionales por médico y estado; paginación y orden por hora e ID. Solo identificación y datos operativos, sin información clínica.',
+    errors: {
+      400: 'Filtros inválidos o desconocidos; no admite fecha manual.',
+    },
+  })
+  @Get('appointments')
+  @Roles('admision')
+  dailyAppointments(
+    @Query() query: DailyAppointmentsDto,
+    @Req() req: AuthRequest,
+    @Ip() ip: string,
+  ) {
+    return this.agenda.dailyAppointments(query, req.user!.id, ip);
   }
 
   @ApiContract('Reservar cita', 'Appointment', {

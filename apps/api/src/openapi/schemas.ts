@@ -148,6 +148,40 @@ export const responseSchemas: Record<string, SchemaObject> = {
   }),
   VitalSigns: object(evaluation),
   MedicalVitalSigns: object({ ...evaluation, autor: object(identity) }),
+  DailyAppointments: object({
+    fecha: { type: 'string', format: 'date' },
+    zonaHoraria: { type: 'string', enum: ['America/Lima'] },
+    pagina: integer,
+    limite: integer,
+    hayMas: { type: 'boolean' },
+    citas: array(
+      object({
+        id: integer,
+        inicio: instant,
+        fin: instant,
+        estado: {
+          type: 'string',
+          enum: [
+            'programada',
+            'confirmada',
+            'reprogramada',
+            'cancelada',
+            'atendida',
+            'no_asistio',
+          ],
+        },
+        modalidad: { type: 'string', enum: ['presencial', 'virtual'] },
+        llegadaEn: nullable(instant),
+        paciente: object({
+          ...identity,
+          tipoDocumento: text,
+          numeroDocumento: text,
+        }),
+        medico: object(identity),
+        especialidad: object({ id: integer, nombre: text }),
+      }),
+    ),
+  }),
   NursingQueue: object({
     fecha: { type: 'string', format: 'date' },
     zonaHoraria: { type: 'string', enum: ['America/Lima'] },

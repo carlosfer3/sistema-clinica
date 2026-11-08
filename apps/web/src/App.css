@@ -87,3 +87,17 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   .filters { grid-template-columns: 1fr; }
   .confirm-actions { flex-direction: column; align-items: stretch; }
 }
+
+.admission-navigation { display: flex; gap: .75rem; margin-bottom: 2rem; flex-wrap: wrap; }
+.admission-navigation [aria-pressed="true"] { background: #e6f2ee; border-color: #14766b; }
+.daily-toolbar { display: flex; align-items: end; gap: 1rem; margin-bottom: 1.5rem; }
+.daily-toolbar > div { max-width: 300px; flex: 1; }
+.daily-toolbar label { display: block; }
+.daily-list { display: grid; gap: 1rem; }
+.daily-row { display: grid; grid-template-columns: 1fr 2fr 1.3fr; align-items: center; gap: 1rem; padding: 1.25rem; overflow-wrap: anywhere; }
+.daily-row p { margin: .5rem 0 0; }
+.daily-row button { display: block; margin-top: .8rem; }
+.arrival-recorded { color: #155b43; }
+.daily-pagination { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.5rem 0; }
+.arrival-confirmation { margin-top: 1.5rem; }
+@media (max-width: 760px) { .daily-row { grid-template-columns: 1fr; } .daily-toolbar { align-items: stretch; flex-direction: column; } .daily-toolbar > div { max-width: none; } }

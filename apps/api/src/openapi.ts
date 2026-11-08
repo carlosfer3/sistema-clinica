@@ -32,6 +32,7 @@ export function setupOpenApi(app: INestApplication) {
     'AvailabilityDto',
     'ArrivalParamsDto',
     'NursingQueueDto',
+    'DailyAppointmentsDto',
     'VitalSignsDto',
   ]) {
     const schema = document.components.schemas[name];

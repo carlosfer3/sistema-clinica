@@ -378,9 +378,7 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
         .auth(admissionToken, { type: 'bearer' })
         .send(body);
     const results = await Promise.all([reserve(), reserve()]);
-    expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([
-      201, 409,
-    ]);
+    expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([201, 409]);
     const created = results.find((r) => r.status === 201)!.body;
     expect(created).toMatchObject({
       pacienteId: patientId,
@@ -810,6 +808,45 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
       );
       await db.$executeRawUnsafe('DROP FUNCTION reject_vitals_audit()');
     }
+  });
+
+  it('lists only today appointments for admission with filtering and no clinical fields', async () => {
+    const date = new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
+    const start = new Date(`${date}T19:00:00-05:00`);
+    const make = (offset: number) =>
+      db.cita.create({
+        data: {
+          pacienteId: patientId,
+          medicoId: doctorId,
+          creadoPor: doctorUserId,
+          estado: 'confirmada',
+          fechaHoraInicio: new Date(start.getTime() + offset),
+          fechaHoraFin: new Date(start.getTime() + offset + 20 * 60000),
+        },
+      });
+    const today = await make(0);
+    const yesterday = await make(-86400000);
+    const tomorrow = await make(86400000);
+    const response = await request(app.getHttpServer())
+      .get(
+        `/api/agenda/appointments?medicoId=${doctorId}&estado=confirmada&limite=100`,
+      )
+      .auth(admissionToken, { type: 'bearer' })
+      .expect(200);
+    const ids = response.body.citas.map((item: { id: number }) => item.id);
+    expect(ids).toContain(today.id);
+    expect(ids).not.toContain(yesterday.id);
+    expect(ids).not.toContain(tomorrow.id);
+    const entry = response.body.citas.find(
+      (item: { id: number }) => item.id === today.id,
+    );
+    expect(entry.estado).toBe('confirmada');
+    expect(entry.llegadaEn).toBeNull();
+    expect(Object.keys(entry.paciente).sort()).toEqual(
+      ['id', 'tipoDocumento', 'numeroDocumento', 'nombres', 'apellidos'].sort(),
+    );
+    expect(entry).not.toHaveProperty('motivo');
+    expect(entry).not.toHaveProperty('evaluacionPrevia');
   });
 
   const time = (value: string) => new Date(`1970-01-01T${value}:00.000Z`);
