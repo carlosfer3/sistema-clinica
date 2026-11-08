@@ -124,3 +124,11 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+## OpenAPI
+
+Con `npm.cmd run start:dev`, abrir Swagger UI en `http://localhost:3000/api/docs`. Contratos descargables: `/api/openapi.json` y `/api/openapi.yaml`. La documentación incluye todas las rutas actuales, roles, Bearer JWT, cuerpos, parámetros y respuestas. Obtener `accessToken` mediante login y pegarlo en **Authorize**; no se persiste al recargar. Las peticiones de Swagger ejecutan las operaciones reales con los permisos de la cuenta.
+
+La configuración está en `src/openapi.ts`; contratos de respuesta y decorador común en `src/openapi/`. Los DTO usan anotaciones explícitas para que el contrato también se genere en pruebas, sin depender de un plugin de compilación. `Roles` publica la seguridad y los roles del guard en OpenAPI. La generación no necesita PostgreSQL.
+
+Verificar: `npm.cmd run test:e2e -- openapi`. Referencia: [integración oficial de OpenAPI en NestJS](https://docs.nestjs.com/openapi/introduction).

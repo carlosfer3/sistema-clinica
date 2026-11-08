@@ -64,7 +64,7 @@ El incremento actual permite a admisión iniciar sesión, buscar un paciente exi
 | Pacientes y base de HCE (M1; HU06/HU07 parciales) | Registro, búsqueda, ficha demográfica, antecedentes y alergias por API. | Registro desde la web, interfaz clínica, CIE-10, recetas, signos vitales e HCE cronológica. |
 | Agenda y citas (M2; HU01 parcial) | Horarios, catálogo, disponibilidad y reserva transaccional por API; reserva desde la web de admisión. | Listado, reprogramación, cancelación, administración de horarios, feriados y excepciones. |
 | Laboratorio, facturación, reportes y portal (M3–M6) | Planificados para Sprint 2; sin módulos funcionales implementados. | Implementación y validación. |
-| Infraestructura y entrega | Docker Compose para PostgreSQL y Redis; API y web locales. | Contenedores de aplicaciones, CI/CD, respaldo/restauración y Swagger. |
+| Infraestructura y entrega | Docker Compose para PostgreSQL y Redis; API y web locales. | Contenedores de aplicaciones, CI/CD y respaldo/restauración. |
 
 > **Alcance acordado de HU04/HU06/HU10:** admisión registra solo datos demográficos y de contacto; enfermería consulta pacientes con llegada registrada y captura signos vitales y observaciones, sin acceso al historial médico; el médico consulta la evaluación previa y la HCE. Las [historias actualizadas](entregables/semana-6/historias-usuario-update.md) incluyen los criterios. La API ya rechaza antecedentes y alergias en el alta de admisión y restringe el perfil clínico al médico; HU04 y HU10 siguen pendientes.
 
@@ -78,7 +78,7 @@ No se declara ninguna historia terminada hasta completar criterios de aceptació
 * **Implementado en backend:** conexión Prisma, prefijo `/api`, validación de DTO, CORS configurable, login JWT, permisos por rol y auditoría explícita en servicios y guard. Registro de pacientes sin cuenta de portal, solo con datos demográficos y de contacto, búsqueda por documento o nombre y consulta de ficha. Los hashes nunca se devuelven en la API.
 * **Integridad en PostgreSQL:** migraciones con anulación justificada, bloqueo de borrado físico de consultas, antecedentes y alergias, bitácora append-only y exclusión de horarios solapados por médico. Las restricciones SQL complementan el esquema Prisma.
 * **Interfaz de admisión implementada:** acceso con cuenta de admisión, búsqueda y selección de pacientes, catálogo de especialidades/médicos, consulta de disponibilidad y confirmación de reserva. Maneja turnos ocupados (409) y pérdida de sesión (401). Ver [guía de la interfaz](apps/web/ADMISSION.md).
-* **Pendiente:** interfaz clínica, registro de pacientes desde la web, listado/reprogramación/cancelación de citas, CIE-10/recetas/signos vitales/HCE cronológica, notificaciones, respaldo/restauración, Swagger y CI/CD. HU01 cuenta con horarios, disponibilidad y reserva por API y web. HU06, HU07 y HU17 tienen avance de backend; ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
+* **Pendiente:** interfaz clínica, registro de pacientes desde la web, listado/reprogramación/cancelación de citas, CIE-10/recetas/signos vitales/HCE cronológica, notificaciones, respaldo/restauración y CI/CD. HU01 cuenta con horarios, disponibilidad y reserva por API y web. HU06, HU07 y HU17 tienen avance de backend; ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
 
 ---
 
@@ -127,12 +127,12 @@ El sistema adopta una **Arquitectura en Capas con API REST Monolítica Modular**
 ```
 
 ### Tecnologías Principales:
-* **Backend implementado:** Node.js, TypeScript, [NestJS](https://nestjs.com/), Prisma ORM, JWT, bcryptjs y class-validator.
+* **Backend implementado:** Node.js, TypeScript, [NestJS](https://nestjs.com/), Prisma ORM, JWT, bcryptjs, class-validator y OpenAPI con Swagger UI.
 * **Frontend:** React, Vite y Tailwind CSS, con interfaz de acceso y agenda para admisión.
 * **Base de Datos & Cache:** PostgreSQL 16, Redis.
 * **Pruebas:** Vitest y Supertest, incluyendo pruebas de migraciones en un esquema PostgreSQL temporal.
 * **Infraestructura:** Docker Compose para PostgreSQL y Redis. La API y la web se ejecutan localmente.
-* **Arquitectura objetivo (pendiente):** BullMQ, Nginx, Swagger, Lucide y GitHub Actions. El diagrama anterior representa el diseño objetivo.
+* **Arquitectura objetivo (pendiente):** BullMQ, Nginx, Lucide y GitHub Actions. El diagrama anterior representa el diseño objetivo.
 
 ---
 
@@ -196,6 +196,20 @@ npm.cmd run dev
 Abrir `http://localhost:5173`. `CORS_ORIGIN` debe coincidir con el origen de la web.
 
 La web usa `VITE_API_URL` (por defecto `http://localhost:3000/api`); copiar `apps/web/.env.example` a `apps/web/.env.local` para cambiarla. Ingresar con una cuenta de admisión existente. El token permanece en memoria y se descarta al cerrar sesión o recargar. Consultar [la guía de admisión](apps/web/ADMISSION.md) para el flujo y sus límites.
+
+### Documentación OpenAPI / Swagger
+
+Con la API iniciada:
+
+- **Swagger UI:** [http://localhost:3000/api/docs](http://localhost:3000/api/docs).
+- **Contrato JSON:** [http://localhost:3000/api/openapi.json](http://localhost:3000/api/openapi.json).
+- **Contrato YAML:** [http://localhost:3000/api/openapi.yaml](http://localhost:3000/api/openapi.yaml).
+
+Los 14 endpoints actuales están documentados por módulo, con cuerpos, parámetros, restricciones, respuestas y errores. Las rutas protegidas declaran Bearer JWT y roles permitidos (`x-roles`), derivados del mismo decorador que usa el guard. La documentación es pública y no consulta PostgreSQL para generarse; las operaciones de negocio conservan sus permisos y requieren la base de datos. No se incluyen contraseñas reales, tokens ni hashes.
+
+Para probar desde Swagger, ejecutar `POST /api/auth/login` con una cuenta local, copiar `accessToken` y pegarlo en **Authorize** (solo el token). El token no se conserva al recargar. **Try it out** ejecuta operaciones reales contra la API: usar datos ficticios del entorno de desarrollo.
+
+La especificación se genera desde controladores y DTO al iniciar la aplicación. Al añadir endpoints, documentar su operación con `ApiContract`, declarar `Roles` o `Public`, anotar las propiedades de entrada y definir su esquema de respuesta. `apps/api/test/openapi.e2e-spec.ts` verifica cobertura, seguridad, esquemas, referencias y publicación de UI/JSON/YAML. Ejecutar desde `apps/api`: `npm.cmd run test:e2e -- openapi`.
 
 ### Cuentas ficticias de demostración
 
