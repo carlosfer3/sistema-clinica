@@ -38,6 +38,25 @@ describe('Authentication, roles and validation (HTTP, mocked database)', () => {
     await app?.close();
   });
 
+  it('returns only the current identity and role for an authenticated session', async () => {
+    const token = await jwt.signAsync({ sub: 1 });
+    await request(app.getHttpServer()).get('/api/auth/me').expect(401);
+    await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .auth(token, { type: 'bearer' })
+      .expect(200, { id: 1, rol: 'admision' });
+    findUnique.mockResolvedValueOnce({ id: 1, rol: 'medico', activo: true });
+    await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .auth(token, { type: 'bearer' })
+      .expect(200, { id: 1, rol: 'medico' });
+    findUnique.mockResolvedValueOnce({ id: 1, rol: 'admision', activo: false });
+    await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .auth(token, { type: 'bearer' })
+      .expect(401);
+  });
+
   it('rejects requests without a token and audits the denial', async () => {
     await request(app.getHttpServer()).get('/api/patients?q=123').expect(401);
     expect(auditCreate).toHaveBeenCalledWith(

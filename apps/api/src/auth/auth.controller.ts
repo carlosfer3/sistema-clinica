@@ -1,7 +1,9 @@
-import { Body, Controller, HttpCode, Ip, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Ip, Post, Req } from '@nestjs/common';
+import { RolUsuario } from '@prisma/client';
 import { IsString, MaxLength, MinLength } from 'class-validator';
-import { Public } from './auth.decorators.js';
+import { Public, Roles } from './auth.decorators.js';
 import { AuthService } from './auth.service.js';
+import type { AuthRequest } from './auth.types.js';
 
 export class LoginDto {
   @IsString()
@@ -18,6 +20,12 @@ export class LoginDto {
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
+
+  @Get('me')
+  @Roles(...Object.values(RolUsuario))
+  me(@Req() req: AuthRequest) {
+    return req.user!;
+  }
 
   @Public()
   @Post('login')
