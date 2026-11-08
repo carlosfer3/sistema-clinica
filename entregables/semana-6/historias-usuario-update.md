@@ -1,5 +1,8 @@
 ## Historias de Usuario
 
+> **Ajuste de alcance — 08/11/2026:** admisión registra únicamente datos demográficos y de contacto (HU06). Enfermería identifica pacientes con llegada registrada (HU04) y registra signos vitales y observaciones previos a la consulta (HU10), sin acceso al historial médico. El médico consulta esa evaluación y el historial mediante HU03. Registrar la llegada es una precondición que debe incorporarse al flujo de admisión. Las estimaciones se conservan provisionalmente. Este acuerdo modifica los requisitos; la API actual todavía permite antecedentes/alergias en el alta y acceso de enfermería al perfil clínico, por lo que debe adecuarse junto con sus pruebas. Los diagramas e informes históricos pueden reflejar el alcance anterior.
+
+
 #### HU01 (5 pts) 
 Como personal de admisión, quiero agendar una cita consultando la disponibilidad consolidada por especialidad y médico, para evitar citas duplicadas o mal asignadas.
 
@@ -24,12 +27,17 @@ Dado un paciente con consultas registradas en más de una especialidad, cuando a
 **Cumple INVEST:** se sostiene por sí sola una vez que existen el registro de pacientes y las consultas (Independiente); el orden y los campos exactos a mostrar pueden afinarse con el equipo médico (Negociable); es la historia de mayor valor del backlog porque evita el error de medicación por historial fragmentado que motivó este proyecto (Valiosa); se estimó en 8 puntos por la complejidad de consolidar datos de varias especialidades (Estimable); y aunque es la más grande del sprint, sigue siendo testeable con el criterio Dado/Cuando/Entonces ya definido (Pequeña y Testeable).
 
 ---
-#### HU04 (5 pts) 
-Como enfermera, quiero consultar los antecedentes e indicaciones del paciente antes de la consulta, para registrar sus signos vitales con el contexto clínico adecuado.
+#### **HU04 (5 pts)**: Consultar pacientes pendientes de evaluación previa
 
-Dado que un paciente tiene una cita programada para hoy, cuando abro su ficha desde la agenda del día, entonces visualizo sus antecedentes y las indicaciones registradas en su última consulta.
+Como personal de enfermería, quiero consultar los pacientes con llegada registrada e identificar su cita, para seleccionar al paciente al que registraré los signos vitales antes de la consulta médica.
 
-**Cumple INVEST:** puede construirse en cuanto esté lista la historia clínica, sin depender de la agenda (Independiente); el equipo puede negociar si se muestra solo la última consulta o el historial completo (Negociable); responde directamente al hallazgo de que enfermería repregunta datos que el paciente ya había dado antes (Valiosa); se estimó en 5 puntos por ser una vista de solo lectura sobre datos ya existentes (Estimable); y es pequeña y testeable, con un criterio de aceptación claro (Pequeña y Testeable).
+**Criterios de aceptación:**
+
+1. Dado que admisión registró la llegada de un paciente con cita del día, cuando consulto la lista de evaluación previa, entonces veo su identificación, edad, hora de cita, médico, especialidad y estado de preparación (pendiente o completada).
+2. Dado un paciente pendiente, cuando lo selecciono, entonces puedo iniciar el registro de HU10 asociado a su cita, sin acceder al historial médico.
+3. Dado un usuario de enfermería, cuando intenta consultar el historial médico, antecedentes, alergias, diagnósticos, indicaciones, recetas o resultados, entonces el sistema rechaza el acceso y registra la denegación, tanto por interfaz como por API.
+
+**Cumplimiento INVEST:** Reutiliza identificación y citas sin depender de la HCE; requiere registrar la llegada en el flujo de admisión (I). Presentación negociable dentro de los permisos acordados (N). Permite identificar al paciente y preparar su atención (V). Se conserva la estimación de 5 puntos, pendiente de reestimación por el cambio de alcance (E). Verificable mediante listado, selección y denegaciones de acceso (S/T).
 
 #### HU05 (3 pts)
 Como personal de admisión, quiero reprogramar o cancelar una cita existente, para liberar el horario y que otro paciente pueda tomarlo.
@@ -39,18 +47,24 @@ Dado que una cita está registrada y aún no ha sido atendida, cuando el pacient
 **Cumple INVEST:** es independiente de las demás historias de agenda, aunque reutiliza su lógica de disponibilidad (Independiente); el flujo de confirmación al paciente puede ajustarse con el equipo (Negociable); es valiosa porque libera horarios que hoy se pierden por la gestión telefónica saturada (Valiosa); se estimó en 3 puntos por apoyarse en la validación ya construida en HU01 (Estimable); y es pequeña y testeable, verificable con el criterio Dado/Cuando/Entonces definido (Pequeña y Testeable).
 
 ---
-#### HU06 (3 pts) 
-Como personal de admisión, quiero registrar un perfil clínico único del paciente (datos generales, antecedentes, alergias y enfermedades crónicas), para evitar historias duplicadas.
+#### **HU06 (3 pts)**: Registrar datos demográficos y de contacto del paciente
 
-Dado que ya existe un paciente con un número de documento, cuando intento registrar otro con el mismo documento, entonces el sistema rechaza el registro e indica el paciente existente.
+Como personal de admisión, quiero registrar un paciente único con sus datos demográficos y de contacto, para identificarlo y gestionar sus citas sin duplicar registros.
 
-**Cumple INVEST:** no depende de otras historias para construirse y probarse (Independiente); los campos del perfil pueden afinarse con la clínica (Negociable); elimina las historias fragmentadas y es la base de HU03 y HU04, por lo que es valiosa para médicos y enfermería (Valiosa); se estimó en 3 puntos por ser un alta con restricción de unicidad (Estimable); y cabe en un sprint, verificable intentando registrar un documento repetido (Pequeña y Testeable).
+**Criterios de aceptación:**
+
+1. Dado un paciente no registrado, cuando ingreso tipo y número de documento, nombres, apellidos, fecha de nacimiento, sexo y datos de contacto, entonces el sistema crea su ficha sin exigir una cuenta de portal.
+2. Dado que existe un paciente con el mismo tipo y número de documento, cuando intento registrarlo nuevamente, entonces el sistema rechaza el duplicado e indica el paciente existente sin exponer información clínica.
+3. Dado un usuario de admisión, cuando intenta enviar antecedentes, alergias, enfermedades crónicas u otros datos clínicos en el registro, entonces la API rechaza esos campos y no los guarda.
+4. Dado un usuario de admisión, cuando consulta la ficha, entonces recibe únicamente datos demográficos y de contacto; el acceso al perfil clínico o historial médico se rechaza.
+
+**Cumplimiento INVEST:** Alta verificable sin depender del registro clínico (I). Campos demográficos y de contacto negociables (N). Evita duplicados y permite gestionar citas (V). Se conservan 3 puntos (E). Verificable con altas, duplicados y rechazo de datos clínicos (S/T).
 
 ---
 #### HU07 (3 pts) 
 Como personal de admisión, quiero buscar al paciente por DNI o nombre y abrir su ficha, para no volver a pedirle sus datos.
 
-Dado que el paciente está registrado, cuando busco por DNI o parte del nombre, entonces el sistema muestra las coincidencias y, al elegir una, abre su historia sin pedir los datos nuevamente.
+Dado que el paciente está registrado, cuando busco por DNI o parte del nombre, entonces el sistema muestra las coincidencias y, al elegir una, abre su ficha demográfica y de contacto, sin mostrar información clínica ni pedir los datos nuevamente.
 
 **Cumple INVEST:** solo requiere que existan pacientes registrados (Independiente); se puede negociar si la búsqueda por nombre es exacta o parcial (Negociable); agiliza la recepción y la agenda, y evita repreguntar datos al paciente (Valiosa); se estimó en 3 puntos por ser una consulta sobre campos indexados (Estimable); y es pequeña y testeable con búsquedas por DNI y por nombre (Pequeña y Testeable).
 
@@ -71,12 +85,18 @@ Dado que existe una entrada de la historia clínica, cuando la anulo indicando e
 **Cumple INVEST:** se apoya en HU08 solo para contar con entradas que anular (Independiente); se puede negociar si la entrada anulada se muestra tachada o se oculta (Negociable); da respaldo médico-legal a la clínica (Valiosa); se estimó en 3 puntos por ser un cambio de estado con registro del motivo (Estimable); y se prueba fácilmente intentando borrar una entrada (Pequeña y Testeable).
 
 ---
-#### HU10 (3 pts) 
-Como enfermera, quiero registrar los signos vitales del paciente, para dejar la información lista antes de la consulta, sin poder modificar lo registrado por el médico.
+#### **HU10 (3 pts)**: Registrar signos vitales y observaciones de enfermería
 
-Dado un paciente con cita hoy, cuando registro sus signos vitales, entonces quedan guardados con mi usuario y fecha; y si intento editar un diagnóstico, el sistema me lo deniega.
+Como personal de enfermería, quiero registrar los signos vitales y observaciones de la evaluación previa del paciente, para que el médico disponga de esa información al iniciar la consulta.
 
-**Cumple INVEST:** complementa a HU04, que solo consulta, pero se construye y prueba por sí sola (Independiente); los signos vitales a registrar se negocian con enfermería (Negociable); evita repreguntar datos y el uso de papel (Valiosa); se estimó en 3 puntos por ser un formulario simple (Estimable); y se prueba registrando signos vitales e intentando editar un diagnóstico (Pequeña y Testeable).
+**Criterios de aceptación:**
+
+1. Dado un paciente con llegada registrada y seleccionado desde HU04, cuando guardo sus signos vitales y observaciones de enfermería antes de la consulta, entonces quedan asociados al paciente y a la cita, con mi usuario, fecha y hora.
+2. Dado un registro guardado correctamente, cuando finalizo la evaluación previa, entonces la preparación de esa cita queda completada; no se marca la consulta médica como atendida.
+3. Dado un médico que inicia la consulta del paciente, cuando abre la atención, entonces puede consultar los signos vitales y observaciones de esa cita, con su autor y fecha, además del historial médico disponible mediante HU03.
+4. Dado un usuario de enfermería, cuando registra la evaluación previa, entonces no necesita ni obtiene acceso al historial médico; si intenta registrar un diagnóstico, prescribir o modificar una consulta médica, el sistema rechaza la acción y registra la denegación.
+
+**Cumplimiento INVEST:** Registro verificable con un paciente y una cita, sin depender de una HCE previa (I). Campos y validaciones de medición negociables (N). Prepara información para la consulta médica (V). Se conservan 3 puntos, pendientes de reestimación si cambia la complejidad (E). Verificable por asociación a la cita, autoría, lectura médica y restricciones (S/T).
 
 ---
 #### HU11 (3 pts) 

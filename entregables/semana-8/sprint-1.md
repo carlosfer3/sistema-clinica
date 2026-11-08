@@ -132,7 +132,7 @@ Debido a que la gestión manual de la Clínica San Rafael provoca errores de med
 | :--- | :--- | :---: |
 | **Admisión / Recepción** | Registrar pacientes y programar citas rápidamente, sin duplicidad ni error de horario. | M1, M2 |
 | **Médico tratante** | Acceder al historial completo del paciente para decidir diagnóstico y tratamiento con seguridad clínica. | M1 |
-| **Enfermera** | Consultar antecedentes e indicaciones y registrar signos vitales previos a la consulta. | M1 |
+| **Enfermera** | Consultar pacientes con llegada registrada y registrar signos vitales y observaciones previos a la consulta, sin acceso al historial médico. | M1 |
 | **Personal de laboratorio** | Visualizar órdenes médicas generadas en la consulta para procesarlas (alcance pleno en M3, Sprint 2). | M3 |
 | **Cajero / Facturación** | Conocer el convenio del paciente y las citas atendidas para emitir el comprobante correcto. | M4 |
 | **Gerencia médica** | Contar con indicadores de ocupación, tiempos de espera e inasistencia para tomar decisiones. | M5 |
@@ -198,11 +198,19 @@ Debido a que la gestión manual de la Clínica San Rafael provoca errores de med
   * *Dado* un paciente con consultas registradas en más de una especialidad, *cuando* abro su historia clínica, *entonces* veo todas las entradas (antecedentes, diagnósticos, indicaciones) ordenadas cronológicamente.
 * **Cumplimiento INVEST:** Independiente tras existir pacientes y consultas (I); campos visuales negociables (N); valor máximo por evitar errores de medicación (V); 8 pts por consolidación multidominio (E); testeable (S/T).
 
-#### **HU04 (5 pts)**: Consulta de antecedentes e indicaciones
-* **Historia:** Como enfermera, quiero consultar los antecedentes e indicaciones del paciente antes de la consulta, para registrar sus signos vitales con el contexto clínico adecuado.
-* **Criterio de Aceptación:**
-  * *Dado* que un paciente tiene una cita programada para hoy, *cuando* abro su ficha desde la agenda del día, *entonces* visualizo sus antecedentes y las indicaciones registradas en su última consulta.
-* **Cumplimiento INVEST:** Independiente (I); vista negociable (N); evita repreguntas innecesarias al paciente (V); 5 pts por ser vista contextual (E); pequeña y testeable (S/T).
+> **Ajuste de alcance — 08/11/2026:** admisión registra únicamente datos demográficos y de contacto (HU06). Enfermería identifica pacientes con llegada registrada (HU04) y registra signos vitales y observaciones previos a la consulta (HU10), sin acceso al historial médico. El médico consulta esa evaluación y el historial mediante HU03. Registrar la llegada es una precondición que debe incorporarse al flujo de admisión. Las estimaciones se conservan provisionalmente. Este acuerdo modifica los requisitos; la API actual todavía permite antecedentes/alergias en el alta y acceso de enfermería al perfil clínico, por lo que debe adecuarse junto con sus pruebas. Los diagramas e informes históricos pueden reflejar el alcance anterior.
+
+#### **HU04 (5 pts)**: Consultar pacientes pendientes de evaluación previa
+
+Como personal de enfermería, quiero consultar los pacientes con llegada registrada e identificar su cita, para seleccionar al paciente al que registraré los signos vitales antes de la consulta médica.
+
+**Criterios de aceptación:**
+
+1. Dado que admisión registró la llegada de un paciente con cita del día, cuando consulto la lista de evaluación previa, entonces veo su identificación, edad, hora de cita, médico, especialidad y estado de preparación (pendiente o completada).
+2. Dado un paciente pendiente, cuando lo selecciono, entonces puedo iniciar el registro de HU10 asociado a su cita, sin acceder al historial médico.
+3. Dado un usuario de enfermería, cuando intenta consultar el historial médico, antecedentes, alergias, diagnósticos, indicaciones, recetas o resultados, entonces el sistema rechaza el acceso y registra la denegación, tanto por interfaz como por API.
+
+**Cumplimiento INVEST:** Reutiliza identificación y citas sin depender de la HCE; requiere registrar la llegada en el flujo de admisión (I). Presentación negociable dentro de los permisos acordados (N). Permite identificar al paciente y preparar su atención (V). Se conserva la estimación de 5 puntos, pendiente de reestimación por el cambio de alcance (E). Verificable mediante listado, selección y denegaciones de acceso (S/T).
 
 #### **HU05 (3 pts)**: Reprogramar o cancelar cita
 * **Historia:** Como personal de admisión, quiero reprogramar o cancelar una cita existente, para liberar el horario y que otro paciente pueda tomarlo.
@@ -210,16 +218,23 @@ Debido a que la gestión manual de la Clínica San Rafael provoca errores de med
   * *Dado* que una cita está registrada y aún no ha sido atendida, *cuando* el paciente solicita el cambio o la cancelación, *entonces* el sistema actualiza el estado de la cita y libera el horario en la agenda consolidada.
 * **Cumplimiento INVEST:** Reutiliza lógica de agenda (I); confirmaciones negociables (N); libera capacidad ociosa (V); 3 pts (E); testeable (S/T).
 
-#### **HU06 (3 pts)**: Registrar perfil clínico único del paciente
-* **Historia:** Como personal de admisión, quiero registrar un perfil clínico único del paciente (datos generales, antecedentes, alergias y enfermedades crónicas), para evitar historias duplicadas.
-* **Criterio de Aceptación:**
-  * *Dado* que ya existe un paciente con un número de documento, *cuando* intento registrar otro con el mismo documento, *entonces* el sistema rechaza el registro e indica el paciente existente.
-* **Cumplimiento INVEST:** Base del sistema (I); catálogo de alergias negociable (N); elimina historias fragmentadas (V); 3 pts por validación UNIQUE (E); testeable (S/T).
+#### **HU06 (3 pts)**: Registrar datos demográficos y de contacto del paciente
+
+Como personal de admisión, quiero registrar un paciente único con sus datos demográficos y de contacto, para identificarlo y gestionar sus citas sin duplicar registros.
+
+**Criterios de aceptación:**
+
+1. Dado un paciente no registrado, cuando ingreso tipo y número de documento, nombres, apellidos, fecha de nacimiento, sexo y datos de contacto, entonces el sistema crea su ficha sin exigir una cuenta de portal.
+2. Dado que existe un paciente con el mismo tipo y número de documento, cuando intento registrarlo nuevamente, entonces el sistema rechaza el duplicado e indica el paciente existente sin exponer información clínica.
+3. Dado un usuario de admisión, cuando intenta enviar antecedentes, alergias, enfermedades crónicas u otros datos clínicos en el registro, entonces la API rechaza esos campos y no los guarda.
+4. Dado un usuario de admisión, cuando consulta la ficha, entonces recibe únicamente datos demográficos y de contacto; el acceso al perfil clínico o historial médico se rechaza.
+
+**Cumplimiento INVEST:** Alta verificable sin depender del registro clínico (I). Campos demográficos y de contacto negociables (N). Evita duplicados y permite gestionar citas (V). Se conservan 3 puntos (E). Verificable con altas, duplicados y rechazo de datos clínicos (S/T).
 
 #### **HU07 (3 pts)**: Buscar paciente por DNI o nombre y abrir ficha
 * **Historia:** Como personal de admisión, quiero buscar al paciente por DNI o nombre y abrir su ficha, para no volver a pedirle sus datos.
 * **Criterio de Aceptación:**
-  * *Dado* que el paciente está registrado, *cuando* busco por DNI o parte del nombre, *entonces* el sistema muestra las coincidencias y, al elegir una, abre su historia sin pedir los datos nuevamente.
+  * *Dado* que el paciente está registrado, *cuando* busco por DNI o parte del nombre, *entonces* el sistema muestra las coincidencias y, al elegir una, abre su ficha demográfica y de contacto, sin mostrar información clínica ni pedir los datos nuevamente.
 * **Cumplimiento INVEST:** Independiente (I); búsqueda parcial negociable (N); agiliza atención (V); 3 pts sobre índices (E); testeable (S/T).
 
 #### **HU08 (8 pts)**: Registrar consulta con diagnóstico CIE-10, indicaciones y receta
@@ -234,11 +249,18 @@ Debido a que la gestión manual de la Clínica San Rafael provoca errores de med
   * *Dado* que existe una entrada de la historia clínica, *cuando* la anulo indicando el motivo, *entonces* queda en estado “anulado” con el motivo y mi usuario, y el intento de eliminarla físicamente es rechazado.
 * **Cumplimiento INVEST:** Independiente (I); formato tachado negociable (N); respaldo médico-legal (V); 3 pts por borrado lógico (E); testeable (S/T).
 
-#### **HU10 (3 pts)**: Registrar signos vitales del paciente
-* **Historia:** Como enfermera, quiero registrar los signos vitales del paciente, para dejar la información lista antes de la consulta, sin poder modificar lo registrado por el médico.
-* **Criterio de Aceptación:**
-  * *Dado* un paciente con cita hoy, *cuando* registro sus signos vitales, *entonces* quedan guardados con mi usuario y fecha; y si intento editar un diagnóstico, el sistema me lo deniega.
-* **Cumplimiento INVEST:** Independiente (I); campos de signos negociables (N); preparación clínica segura (V); 3 pts (E); testeable (S/T).
+#### **HU10 (3 pts)**: Registrar signos vitales y observaciones de enfermería
+
+Como personal de enfermería, quiero registrar los signos vitales y observaciones de la evaluación previa del paciente, para que el médico disponga de esa información al iniciar la consulta.
+
+**Criterios de aceptación:**
+
+1. Dado un paciente con llegada registrada y seleccionado desde HU04, cuando guardo sus signos vitales y observaciones de enfermería antes de la consulta, entonces quedan asociados al paciente y a la cita, con mi usuario, fecha y hora.
+2. Dado un registro guardado correctamente, cuando finalizo la evaluación previa, entonces la preparación de esa cita queda completada; no se marca la consulta médica como atendida.
+3. Dado un médico que inicia la consulta del paciente, cuando abre la atención, entonces puede consultar los signos vitales y observaciones de esa cita, con su autor y fecha, además del historial médico disponible mediante HU03.
+4. Dado un usuario de enfermería, cuando registra la evaluación previa, entonces no necesita ni obtiene acceso al historial médico; si intenta registrar un diagnóstico, prescribir o modificar una consulta médica, el sistema rechaza la acción y registra la denegación.
+
+**Cumplimiento INVEST:** Registro verificable con un paciente y una cita, sin depender de una HCE previa (I). Campos y validaciones de medición negociables (N). Prepara información para la consulta médica (V). Se conservan 3 puntos, pendientes de reestimación si cambia la complejidad (E). Verificable por asociación a la cita, autoría, lectura médica y restricciones (S/T).
 
 #### **HU11 (3 pts)**: Confirmación de cita registrada, reprogramada o cancelada
 * **Historia:** Como paciente, quiero recibir una confirmación al registrar, reprogramar o cancelar mi cita, para tener certeza de la fecha, hora y médico.
@@ -296,13 +318,13 @@ Debido a que la gestión manual de la Clínica San Rafael provoca errores de med
 | **HU01** | Agendar cita con disponibilidad consolidada | M2 | Sprint 1 | Must | 5 |
 | **HU02** | Recordatorio automático de cita | M2 | Sprint 1 | Must | 3 |
 | **HU03** | Historia clínica unificada | M1 | Sprint 1 | Must | 8 |
-| **HU04** | Consulta de antecedentes e indicaciones | M1 | Sprint 1 | Must | 5 |
+| **HU04** | Consultar pacientes pendientes de evaluación previa | M1 | Sprint 1 | Must | 5 |
 | **HU05** | Reprogramar o cancelar cita | M2 | Sprint 1 | Must | 3 |
-| **HU06** | Registrar perfil clínico único del paciente | M1 | Sprint 1 | Must | 3 |
+| **HU06** | Registrar datos demográficos y de contacto del paciente | M1 | Sprint 1 | Must | 3 |
 | **HU07** | Buscar paciente por DNI o nombre y abrir ficha | M1 | Sprint 1 | Must | 3 |
 | **HU08** | Registrar consulta con diagnóstico CIE-10, indicaciones y receta | M1 | Sprint 1 | Must | 8 |
 | **HU09** | Anular entrada de historia clínica con motivo | M1 | Sprint 1 | Must | 3 |
-| **HU10** | Registrar signos vitales del paciente | M1 | Sprint 1 | Must | 3 |
+| **HU10** | Registrar signos vitales y observaciones de enfermería | M1 | Sprint 1 | Must | 3 |
 | **HU11** | Confirmación de cita registrada, reprogramada o cancelada | M2 | Sprint 1 | Must | 3 |
 | **HU17** | Control de acceso por rol y auditoría de historia clínica (Ley 29733) | M1/Transv. | Sprint 1 | Must | 8 |
 | **HU18** | Respaldo diario automático y restauración de historias clínicas | M1/Transv. | Sprint 1 | Must | 3 |
@@ -605,7 +627,7 @@ Este flujo corresponde a HU16. La demostración del Sprint 1 usa admisión, enfe
 
 | Sprint | Semanas | Alcance funcional y técnico | Estimación |
 | :---: | :---: | :--- | :---: |
-| **Sprint 1** | Semanas 9 – 11 | **Módulos M1 y M2 completos, más historias transversales de seguridad y respaldo:**<br>• **M1 (HCE):** HU06 (perfil único), HU07 (búsqueda DNI/nombre), HU08 (consulta con CIE-10/receta), HU09 (anular con motivo), HU10 (signos vitales), HU04 (antecedentes e indicaciones), HU03 (HCE unificada).<br>• **M2 (Agenda) y Notificaciones:** HU01 (agendar con disponibilidad), HU05 (reprogramar/cancelar), HU02 (recordatorio 24h), HU11 (confirmación).<br>• **Transversales:** HU17 (RBAC y auditoría Ley 29733) y HU18 (respaldo y restauración).<br><br>*Objetivo:* Dejar operativo el flujo núcleo clínico (RF01–RF09) sin borrado físico y con trazabilidad completa. | **13 historias**<br>**58 puntos** |
+| **Sprint 1** | Semanas 9 – 11 | **Módulos M1 y M2 completos, más historias transversales de seguridad y respaldo:**<br>• **M1 (HCE):** HU06 (datos demográficos y de contacto), HU07 (búsqueda DNI/nombre), HU08 (consulta con CIE-10/receta), HU09 (anular con motivo), HU10 (signos vitales), HU04 (pacientes pendientes de evaluación previa), HU03 (HCE unificada).<br>• **M2 (Agenda) y Notificaciones:** HU01 (agendar con disponibilidad), HU05 (reprogramar/cancelar), HU02 (recordatorio 24h), HU11 (confirmación).<br>• **Transversales:** HU17 (RBAC y auditoría Ley 29733) y HU18 (respaldo y restauración).<br><br>*Objetivo:* Dejar operativo el flujo núcleo clínico (RF01–RF09) sin borrado físico y con trazabilidad completa. | **13 historias**<br>**58 puntos** |
 | **Sprint 2** | Semanas 12 – 14 | **Módulos M3, M4, M5 y M6 completos:**<br>• **M3 (Laboratorio e imágenes):** HU12 (generar orden), HU13 (resultado digital).<br>• **M4 (Facturación y convenios):** HU14 (convenio y copago en cobro).<br>• **M5 (Reportes gerenciales):** HU15 (ocupación, esperas e inasistencia).<br>• **M6 (Portal del paciente):** HU16 (agendamiento en línea).<br><br>*Objetivo:* Eliminar el papel en laboratorio, visibilizar convenios en caja, métricas de gestión y canal de autoservicio. | **5 historias**<br>**25 puntos** |
 
 ---
@@ -616,11 +638,11 @@ Este flujo corresponde a HU16. La demostración del Sprint 1 usa admisión, enfe
 | **HU17** | Control de acceso por rol y auditoría de historia clínica (Ley 29733) | Jhostin Leonardo Rodríguez Neyra | 8 | Por hacer |
 | **HU08** | Registrar consulta con diagnóstico CIE-10, indicaciones y receta | Jhostin Leonardo Rodríguez Neyra | 8 | Por hacer |
 | **HU09** | Anular entrada de la historia clínica indicando el motivo | Jhostin Leonardo Rodríguez Neyra | 3 | Por hacer |
-| **HU06** | Registrar un perfil clínico único del paciente (DNI único) | Rafael Olivos Gallardo | 3 | Por hacer |
+| **HU06** | Registrar datos demográficos y de contacto del paciente | Rafael Olivos Gallardo | 3 | Por hacer |
 | **HU07** | Buscar paciente por DNI o nombre y abrir ficha | Rafael Olivos Gallardo | 3 | Por hacer |
 | **HU03** | Ver historia clínica unificada cronológica | Rafael Olivos Gallardo | 8 | Por hacer |
-| **HU04** | Consultar antecedentes e indicaciones previas | Rafael Olivos Gallardo | 5 | Por hacer |
-| **HU10** | Registrar signos vitales del paciente | Rafael Olivos Gallardo | 3 | Por hacer |
+| **HU04** | Consultar pacientes pendientes de evaluación previa | Rafael Olivos Gallardo | 5 | Por hacer |
+| **HU10** | Registrar signos vitales y observaciones de enfermería | Rafael Olivos Gallardo | 3 | Por hacer |
 | **HU01** | Agendar cita consultando disponibilidad consolidada | Carlos Benjamin Fernandez Iquise | 5 | Por hacer |
 | **HU05** | Reprogramar o cancelar una cita liberando horario | Carlos Benjamin Fernandez Iquise | 3 | Por hacer |
 | **HU02** | Enviar recordatorio automático de cita 24h antes | Carlos Benjamin Fernandez Iquise | 3 | Por hacer |
@@ -646,8 +668,8 @@ El total correcto del Sprint 1 es **58 puntos** (13 historias); la cifra anterio
 | :--- | :--- | :--- |
 | Base técnica | Prisma integrado, configuración, prefijo `/api`, DTO, CORS y cierre de conexiones | Validación del equipo en contenedores y pipeline |
 | HU17 | Login JWT, rol/estado consultados en cada petición, denegaciones auditadas y acceso clínico restringido | Integrar auditoría en futuras operaciones de HCE, matriz completa, revisión por PR |
-| HU06 | API de registro con documento único, DNI de 8 dígitos, antecedentes (incluye crónicas) y alergias; paciente sin cuenta de portal | Interfaz de admisión, Swagger y DoD completa |
-| HU07 | API de búsqueda por documento/nombres/apellidos y ficha demográfica; perfil clínico para médico/enfermería | Interfaz y apertura de HCE cronológica (HU03) |
+| HU06 | API de registro con documento único, DNI de 8 dígitos, antecedentes (incluye crónicas) y alergias; paciente sin cuenta de portal | Adecuar HU06: rechazar campos clínicos en admisión; interfaz, Swagger y DoD completa |
+| HU07 | API de búsqueda por documento/nombres/apellidos y ficha demográfica; perfil clínico para médico/enfermería (comportamiento anterior al ajuste de permisos) | Retirar acceso clínico de enfermería; interfaz y HCE cronológica (HU03) |
 | HU01/HU05 | Restricción PostgreSQL para intervalos válidos y evitar solapamientos de citas por médico. Modelo semanal de horarios por médico y consultorio, con duración configurable y protección contra cruces | API de disponibilidad, reservas/reprogramaciones/cancelaciones e interfaz |
 | HU09 | CHECK de anulación y triggers contra DELETE/TRUNCATE de consultas | Endpoint de anulación, autorización e interfaz |
 

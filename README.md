@@ -66,6 +66,8 @@ El incremento actual permite a admisión iniciar sesión, buscar un paciente exi
 | Laboratorio, facturación, reportes y portal (M3–M6) | Planificados para Sprint 2; sin módulos funcionales implementados. | Implementación y validación. |
 | Infraestructura y entrega | Docker Compose para PostgreSQL y Redis; API y web locales. | Contenedores de aplicaciones, CI/CD, respaldo/restauración y Swagger. |
 
+> **Alcance acordado de HU04/HU06/HU10:** admisión registra solo datos demográficos y de contacto; enfermería consulta pacientes con llegada registrada y captura signos vitales y observaciones, sin acceso al historial médico; el médico consulta la evaluación previa y la HCE. Las [historias actualizadas](entregables/semana-6/historias-usuario-update.md) incluyen los criterios. La API descrita más abajo conserva el comportamiento anterior y está pendiente de adecuación, junto con sus pruebas.
+
 No se declara ninguna historia terminada hasta completar criterios de aceptación, revisión por PR y validación en contenedores conforme a la DoD. Los modelos de datos por sí solos no constituyen módulos funcionales completos.
 
 * **✅ Documentación de Ingeniería Consolidada (aprobación académica pendiente de registrar):**
