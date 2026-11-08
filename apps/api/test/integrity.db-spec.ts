@@ -342,6 +342,50 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
     await reserve().expect(201);
   });
 
+  it('lists only eligible doctors in the scheduling catalog', async () => {
+    const doctor = await db.medico.findUniqueOrThrow({
+      where: { id: doctorId },
+    });
+    const getCatalog = () =>
+      request(app.getHttpServer())
+        .get('/api/agenda/catalog')
+        .auth(admissionToken, { type: 'bearer' });
+    const response = await getCatalog().expect(200);
+    expect(response.body).toEqual({
+      especialidades: [
+        {
+          id: doctor.especialidadId,
+          nombre: 'Especialidad ficticia',
+          medicos: [{ id: doctorId, nombres: 'Medico', apellidos: 'Prueba' }],
+        },
+      ],
+    });
+    await db.usuario.update({
+      where: { id: doctorUserId },
+      data: { activo: false },
+    });
+    try {
+      await getCatalog().expect(200, { especialidades: [] });
+    } finally {
+      await db.usuario.update({
+        where: { id: doctorUserId },
+        data: { activo: true },
+      });
+    }
+    await db.consultorio.update({
+      where: { id: consultingRoomId },
+      data: { activo: false },
+    });
+    try {
+      await getCatalog().expect(200, { especialidades: [] });
+    } finally {
+      await db.consultorio.update({
+        where: { id: consultingRoomId },
+        data: { activo: true },
+      });
+    }
+  });
+
   it('validates reservation roles, exact slots, dates, patient and active resources', async () => {
     const body = {
       pacienteId: patientId,

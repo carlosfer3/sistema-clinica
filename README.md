@@ -62,7 +62,8 @@ Nos encontramos en el **cierre del Entregable 1 (Semana 8)** y en el **arranque 
   * Wireframes de agendamiento, alertas y HCE unificada.
 * **Implementado en backend:** conexión Prisma, prefijo `/api`, validación de DTO, CORS configurable, login JWT, permisos por rol y auditoría explícita en servicios y guard. Registro de pacientes sin cuenta de portal, antecedentes/alergias, búsqueda por documento o nombre y consulta de ficha. Los hashes nunca se devuelven en la API.
 * **Integridad en PostgreSQL:** migraciones con anulación justificada, bloqueo de borrado físico de consultas, antecedentes y alergias, bitácora append-only y exclusión de horarios solapados por médico. Las restricciones SQL complementan el esquema Prisma.
-* **Pendiente:** interfaz clínica (el frontend aún muestra la plantilla), interfaz de agenda HU01/HU05, CIE-10/recetas/signos vitales/HCE cronológica, notificaciones, respaldo/restauración, Swagger y CI/CD. HU01 ya cuenta con horarios, consulta de disponibilidad y reserva transaccional por API. HU06, HU07 y HU17 tienen avance de backend; ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
+* **Interfaz de admisión implementada:** acceso con cuenta de admisión, búsqueda y selección de pacientes, catálogo de especialidades/médicos, consulta de disponibilidad y confirmación de reserva. Maneja turnos ocupados (409) y pérdida de sesión (401). Ver [guía de la interfaz](apps/web/ADMISSION.md).
+* **Pendiente:** interfaz clínica, registro de pacientes desde la web, listado/reprogramación/cancelación de citas, CIE-10/recetas/signos vitales/HCE cronológica, notificaciones, respaldo/restauración, Swagger y CI/CD. HU01 cuenta con horarios, disponibilidad y reserva por API y web. HU06, HU07 y HU17 tienen avance de backend; ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
 
 ---
 
@@ -112,7 +113,7 @@ El sistema adopta una **Arquitectura en Capas con API REST Monolítica Modular**
 
 ### Tecnologías Principales:
 * **Backend implementado:** Node.js, TypeScript, [NestJS](https://nestjs.com/), Prisma ORM, JWT, bcryptjs y class-validator.
-* **Frontend inicializado:** React, Vite y Tailwind CSS.
+* **Frontend:** React, Vite y Tailwind CSS, con interfaz de acceso y agenda para admisión.
 * **Base de Datos & Cache:** PostgreSQL 16, Redis.
 * **Pruebas:** Vitest y Supertest, incluyendo pruebas de migraciones en un esquema PostgreSQL temporal.
 * **Infraestructura:** Docker Compose para PostgreSQL y Redis. La API y la web se ejecutan localmente.
@@ -125,7 +126,7 @@ El sistema adopta una **Arquitectura en Capas con API REST Monolítica Modular**
 ```text
 ├── apps/
 │   ├── api/             # NestJS, Prisma, autenticación, auditoría y pacientes
-│   └── web/             # React + Vite + Tailwind (plantilla inicial)
+│   └── web/             # React + Vite + Tailwind, acceso y agenda de admisión
 ├── entregables/
 │   ├── semana-2/       # Acta de constitución y documento de visión
 │   ├── semana-3/       # Guía de requerimientos iniciales
@@ -179,6 +180,8 @@ npm.cmd run dev
 
 Abrir `http://localhost:5173`. `CORS_ORIGIN` debe coincidir con el origen de la web.
 
+La web usa `VITE_API_URL` (por defecto `http://localhost:3000/api`); copiar `apps/web/.env.example` a `apps/web/.env.local` para cambiarla. Ingresar con una cuenta de admisión existente. El token permanece en memoria y se descarta al cerrar sesión o recargar. Consultar [la guía de admisión](apps/web/ADMISSION.md) para el flujo y sus límites.
+
 ### Cuentas ficticias de demostración
 
 Desde `apps/api`, definir `DEMO_PASSWORD` en el entorno local (no versionado), con al menos 12 caracteres y hasta 72 bytes UTF-8, y ejecutar `npm.cmd run db:seed:demo` después de aplicar las migraciones. Crea `demo.admision`, `demo.medico`, `demo.medico.pediatria` y `demo.enfermeria` con hash bcrypt. Las cuentas nuevas usan esa contraseña; las existentes conservan su contraseña y sus datos.
@@ -199,6 +202,8 @@ El seed rechaza `NODE_ENV=production`; verificar además que `DATABASE_URL` apun
 | Método y ruta | Permiso | Comportamiento |
 | :--- | :--- | :--- |
 | `POST /api/auth/login` | Público | `{ "username": "...", "password": "..." }`; devuelve `accessToken` (1 hora). |
+| `GET /api/auth/me` | Cualquier rol autenticado | Devuelve exclusivamente el ID y rol actual de la cuenta activa. |
+| `GET /api/agenda/catalog` | admision, medico, enfermeria | Especialidades con médicos activos de rol médico y al menos un horario en consultorio activo; nombres e IDs para los selectores de agenda. Registra `READ_AGENDA_CATALOG`. |
 | `POST /api/patients` | admision | Registra datos, antecedentes y alergias; documento duplicado devuelve 409 y `patientId`. |
 | `GET /api/patients?q=texto&limit=20` | admision, medico, enfermeria | Busca por documento, nombres o apellidos; máximo 100 resultados; sin campos clínicos. |
 | `GET /api/patients/:id` | admision, medico, enfermeria | Ficha demográfica. |
@@ -229,7 +234,7 @@ Las pruebas manuales de API se realizan con **Bruno**. Consultar el [registro de
 
 Desde `apps/api`: `npm.cmd run build`, `npm.cmd run lint`, `npm.cmd test`, `npm.cmd run test:e2e` y `npm.cmd run test:db`. Las pruebas HTTP e2e usan persistencia simulada; `test:db` aplica todas las migraciones y prueba el flujo HTTP contra un esquema temporal único, que elimina al terminar. Requiere PostgreSQL y permisos para crear esquemas y la extensión `btree_gist`. No reinicia las tablas del esquema de la aplicación.
 
-Desde `apps/web`: `npm.cmd run build` y `npm.cmd run lint`.
+Desde `apps/web`: `npm.cmd run build`, `npm.cmd run lint` y `npm.cmd run test:e2e`. Las pruebas de navegador usan Microsoft Edge con API simulada y verifican acceso, reserva, colisiones, sesión, filtros y adaptación móvil; no sustituyen una ejecución integrada con PostgreSQL.
 
 Las migraciones no corrigen datos históricos incompatibles: si ya existen citas solapadas o anulaciones incompletas, se debe revisar esos datos antes de desplegarlas. En despliegue usar un rol de aplicación sin permisos de superusuario ni DDL; los triggers no protegen frente al administrador de la base de datos.
 
@@ -263,7 +268,7 @@ Respuestas: 201 con ID, paciente/médico, inicio/fin UTC, estado, canal y modali
 
 Las pruebas de `apps/api/test/integrity.db-spec.ts` verifican dos reservas HTTP simultáneas (201/409), cancelación y nueva reserva, actualización de disponibilidad, validaciones y reversión por fallo de auditoría contra un esquema PostgreSQL temporal. Ejecutar `npm.cmd run test:db` con la base de desarrollo configurada.
 
-Siguiente parte: construir la interfaz de admisión para consultar disponibilidad y reservar. Reprogramación, cancelación por API, feriados y excepciones siguen pendientes.
+Interfaz de admisión implementada: consultar disponibilidad, elegir un paciente existente y confirmar la reserva desde la web. Siguiente incremento: listado y gestión de citas (reprogramación/cancelación) y registro de pacientes desde la interfaz. Feriados y excepciones siguen pendientes. La aceptación de HU01 continúa sujeta a la DoD y revisión por PR.
 
 ---
 

@@ -9,6 +9,12 @@ import { CreateAppointmentDto } from './create-appointment.dto.js';
 export class AgendaController {
   constructor(private readonly agenda: AgendaService) {}
 
+  @Get('catalog')
+  @Roles('admision', 'medico', 'enfermeria')
+  catalog(@Req() req: AuthRequest, @Ip() ip: string) {
+    return this.agenda.catalog(req.user!.id, ip);
+  }
+
   @Post('appointments')
   @Roles('admision')
   create(

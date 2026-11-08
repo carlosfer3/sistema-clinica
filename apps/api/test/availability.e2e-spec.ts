@@ -13,6 +13,7 @@ describe('Availability (HTTP, mocked database)', () => {
   const schedules = vi.fn();
   const appointments = vi.fn();
   const audit = vi.fn();
+  const specialties = vi.fn();
   const url =
     '/api/agenda/availability?fecha=2099-01-05&especialidadId=1&medicoId=2';
 
@@ -25,6 +26,7 @@ describe('Availability (HTTP, mocked database)', () => {
         horarioMedico: { findMany: schedules },
         cita: { findMany: appointments },
         bitacoraAuditoria: { create: audit },
+        especialidad: { findMany: specialties },
       })
       .compile();
     app = module.createNestApplication();
@@ -51,6 +53,52 @@ describe('Availability (HTTP, mocked database)', () => {
       },
     ]);
     appointments.mockResolvedValue([]);
+    specialties.mockResolvedValue([]);
+  });
+
+  it('returns a protected catalog without exposing private user fields', async () => {
+    await request(app.getHttpServer()).get('/api/agenda/catalog').expect(401);
+    specialties.mockResolvedValue([
+      {
+        id: 1,
+        nombre: 'Medicina',
+        medicos: [{ id: 2, usuario: { nombres: 'Demo', apellidos: 'Medico' } }],
+      },
+    ]);
+    await request(app.getHttpServer())
+      .get('/api/agenda/catalog')
+      .auth(token, { type: 'bearer' })
+      .expect(200, {
+        especialidades: [
+          {
+            id: 1,
+            nombre: 'Medicina',
+            medicos: [{ id: 2, nombres: 'Demo', apellidos: 'Medico' }],
+          },
+        ],
+      });
+    expect(specialties).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          medicos: {
+            some: {
+              usuario: { activo: true, rol: 'medico' },
+              horarios: { some: { consultorio: { activo: true } } },
+            },
+          },
+        },
+      }),
+    );
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ accion: 'READ_AGENDA_CATALOG' }),
+      }),
+    );
+    user.mockResolvedValue({ id: 1, rol: 'paciente', activo: true });
+    await request(app.getHttpServer())
+      .get('/api/agenda/catalog')
+      .auth(token, { type: 'bearer' })
+      .expect(403);
   });
 
   it('requires authentication and authorized roles', async () => {

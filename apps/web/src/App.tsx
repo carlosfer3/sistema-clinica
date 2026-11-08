@@ -1,10 +1,14 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
+import { Agenda } from './Agenda'
 import { Login } from './Login'
 import type { Session } from './api'
 import './App.css'
 
 function App() {
   const [session, setSession] = useState<Session | null>(null)
+  const [booking, setBooking] = useState(false)
+  const [expired, setExpired] = useState(false)
+  const onExpired = useCallback(() => { setSession(null); setBooking(false); setExpired(true) }, [])
   return (
     <div className="app">
       <header className="topbar">
@@ -14,17 +18,11 @@ function App() {
         </a>
         <div className="session-actions">
           <span className="badge">Admisión</span>
-          {session && <button className="secondary" onClick={() => setSession(null)}>Cerrar sesión</button>}
+          {session && <button className="secondary" disabled={booking} onClick={() => { setSession(null); setExpired(false) }}>Cerrar sesión</button>}
         </div>
       </header>
       <main>
-        {!session ? <Login onLogin={setSession} /> : (
-          <section className="card welcome">
-            <p className="eyebrow">Área de admisión</p>
-            <h1>Sesión iniciada</h1>
-            <p>Has ingresado al sistema de la Clínica San Rafael con tu cuenta de admisión.</p>
-          </section>
-        )}
+        {!session ? <>{expired && <p role="alert" className="notice error">Tu sesión venció o perdió acceso. Inicia sesión nuevamente.</p>}<Login onLogin={value => { setExpired(false); setSession(value) }} /></> : <Agenda session={session} onExpired={onExpired} onBookingChange={setBooking} />}
       </main>
       <footer>SIGES SR · Clínica San Rafael<span>Uso exclusivo del personal autorizado</span></footer>
     </div>

@@ -16,6 +16,42 @@ export class AgendaService {
     private readonly audit: AuditService,
   ) {}
 
+  async catalog(actorId: number, ip?: string) {
+    await this.audit.record(
+      actorId,
+      'READ_AGENDA_CATALOG',
+      'agenda/catalog',
+      ip,
+    );
+    const eligible = {
+      usuario: { activo: true, rol: 'medico' as const },
+      horarios: { some: { consultorio: { activo: true } } },
+    };
+    const specialties = await this.prisma.especialidad.findMany({
+      where: { medicos: { some: eligible } },
+      select: {
+        id: true,
+        nombre: true,
+        medicos: {
+          where: eligible,
+          select: {
+            id: true,
+            usuario: { select: { nombres: true, apellidos: true } },
+          },
+          orderBy: [{ usuario: { apellidos: 'asc' } }, { id: 'asc' }],
+        },
+      },
+      orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
+    });
+    return {
+      especialidades: specialties.map((s) => ({
+        id: s.id,
+        nombre: s.nombre,
+        medicos: s.medicos.map((m) => ({ id: m.id, ...m.usuario })),
+      })),
+    };
+  }
+
   async create(dto: CreateAppointmentDto, actorId: number, ip?: string) {
     const start = new Date(dto.inicio);
     // Shift the instant to Lima wall-clock components, independent of server TZ.
