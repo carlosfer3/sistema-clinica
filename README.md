@@ -44,16 +44,29 @@ gantt
     Semanas 3-4 - Requerimientos y Modelos UML     :done, w3, 2026-09-18, 2026-10-01
     Semanas 5-6 - Arquitectura y Prototipo UX-UI   :done, w5, 2026-10-02, 2026-10-15
     Semana 7 - Plan de Release y Sprint Backlog 1  :done, w7, 2026-10-16, 2026-10-23
-    Semana 8 - Examen Parcial Sustentacion E1      :active, w8, 2026-10-24, 2026-10-31
+    Semana 8 - Examen Parcial Sustentacion E1      :done, w8, 2026-10-24, 2026-10-31
     section Sprint 1 - Codigo Real
-    Semanas 9-11 - Implementacion Nucleo M1 y M2   :w9, 2026-11-01, 2026-11-21
+    Semanas 9-11 - Implementacion Nucleo M1 y M2   :active, w9, 2026-11-01, 2026-11-21
     section Sprint 2 - Expansion
     Semanas 12-14 - Modulos M3 M4 M5 y M6          :w12, 2026-11-22, 2026-12-12
     Semana 16 - Examen Final                       :w16, 2026-12-13, 2026-12-20
 ```
 
-### 📍 Fase Actual: **Transición de Ingeniería hacia Código Real (Sprint 1)**
-Nos encontramos en el **cierre del Entregable 1 (Semana 8)** y en el **arranque de la formalización e implementación del código fuente del Sprint 1 (Semanas 9 a 11)**:
+### 📍 Fase actual: **Sprint 1 en implementación (Semanas 9 a 11)**
+
+**Estado revisado al 08/11/2026**, a partir del código y las evidencias disponibles. Según el cronograma, el equipo se encuentra en la semana 10. La documentación del Entregable 1 está disponible; su aprobación académica no está registrada.
+
+El incremento actual permite a admisión iniciar sesión, buscar un paciente existente, consultar disponibilidad y confirmar una cita presencial desde la web. El Sprint 1 sigue abierto.
+
+| Área | Implementado | Pendiente principal |
+| :--- | :--- | :--- |
+| Seguridad y auditoría (HU17) | Login JWT, control por roles, verificación de cuentas activas y auditoría. | Extender la cobertura a los módulos restantes y validar la DoD. |
+| Pacientes y base de HCE (M1; HU06/HU07 parciales) | Registro, búsqueda, ficha demográfica, antecedentes y alergias por API. | Registro desde la web, interfaz clínica, CIE-10, recetas, signos vitales e HCE cronológica. |
+| Agenda y citas (M2; HU01 parcial) | Horarios, catálogo, disponibilidad y reserva transaccional por API; reserva desde la web de admisión. | Listado, reprogramación, cancelación, administración de horarios, feriados y excepciones. |
+| Laboratorio, facturación, reportes y portal (M3–M6) | Planificados para Sprint 2; sin módulos funcionales implementados. | Implementación y validación. |
+| Infraestructura y entrega | Docker Compose para PostgreSQL y Redis; API y web locales. | Contenedores de aplicaciones, CI/CD, respaldo/restauración y Swagger. |
+
+No se declara ninguna historia terminada hasta completar criterios de aceptación, revisión por PR y validación en contenedores conforme a la DoD. Los modelos de datos por sí solos no constituyen módulos funcionales completos.
 
 * **✅ Documentación de Ingeniería Consolidada (aprobación académica pendiente de registrar):**
   * Requerimientos funcionales (RF01–RF13) y no funcionales (RNF01–RNF06) especificados con criterios de aceptación en Gherkin (`Dado/Cuando/Entonces`).
@@ -195,15 +208,17 @@ La carga incluye dos especialidades, dos médicos asociados a sus cuentas, dos c
 
 Los códigos `DEMO0001` y `DEMO0002` son identificadores ficticios, no matrículas profesionales reales. Los horarios usan una fecha de referencia UTC para almacenar las horas locales sin desplazarlas. Se puede repetir el comando sin duplicar estos registros. Toda la carga es transaccional: si una cuenta tiene un rol incompatible o está inactiva, un consultorio está inactivo, un médico/horario existente difiere de la configuración esperada o PostgreSQL rechaza un cruce, se cancela la carga completa sin sobrescribir los datos existentes. Revisar el conflicto antes de volver a ejecutarla.
 
-El seed rechaza `NODE_ENV=production`; verificar además que `DATABASE_URL` apunte al entorno de desarrollo antes de ejecutarlo. No crea pacientes ni citas: registrar pacientes mediante la API permite comprobar validaciones, permisos y auditoría. Estos datos preparan la agenda para desarrollar disponibilidad; no implementan endpoints ni reserva. Las pruebas del seed se ejecutan con `npm.cmd run test:db` en un esquema temporal independiente.
+El seed rechaza `NODE_ENV=production`; verificar además que `DATABASE_URL` apunte al entorno de desarrollo antes de ejecutarlo. No crea pacientes ni citas: registrar pacientes mediante la API permite comprobar validaciones, permisos y auditoría. Estos datos alimentan el catálogo y la disponibilidad y permiten probar la reserva con pacientes registrados previamente por API. Las pruebas del seed se ejecutan con `npm.cmd run test:db` en un esquema temporal independiente.
 
-### Contrato HTTP inicial
+### Contrato HTTP implementado
 
 | Método y ruta | Permiso | Comportamiento |
 | :--- | :--- | :--- |
 | `POST /api/auth/login` | Público | `{ "username": "...", "password": "..." }`; devuelve `accessToken` (1 hora). |
 | `GET /api/auth/me` | Cualquier rol autenticado | Devuelve exclusivamente el ID y rol actual de la cuenta activa. |
 | `GET /api/agenda/catalog` | admision, medico, enfermeria | Especialidades con médicos activos de rol médico y al menos un horario en consultorio activo; nombres e IDs para los selectores de agenda. Registra `READ_AGENDA_CATALOG`. |
+| `GET /api/agenda/availability?fecha=YYYY-MM-DD&especialidadId=1&medicoId=1` | admision, medico, enfermeria | Turnos futuros disponibles; `medicoId` es opcional. |
+| `POST /api/agenda/appointments` | admision | Reserva transaccional con auditoría; conflicto de ocupación devuelve 409. |
 | `POST /api/patients` | admision | Registra datos, antecedentes y alergias; documento duplicado devuelve 409 y `patientId`. |
 | `GET /api/patients?q=texto&limit=20` | admision, medico, enfermeria | Busca por documento, nombres o apellidos; máximo 100 resultados; sin campos clínicos. |
 | `GET /api/patients/:id` | admision, medico, enfermeria | Ficha demográfica. |
@@ -230,7 +245,7 @@ Ejemplo de registro (solo datos ficticios):
 
 ### Verificación
 
-Las pruebas manuales de API se realizan con **Bruno**. Consultar el [registro de pruebas y evidencias](entregables/semana-8/pruebas/registro-pruebas.md), que distingue resultados manuales, pruebas automatizadas y alcance pendiente de HU01.
+Las pruebas manuales de API se realizan con **Bruno**. Consultar el [registro de pruebas y evidencias](entregables/semana-8/pruebas/registro-pruebas.md), que conserva resultados manuales del 30/10/2026 y el reporte de horarios del 28/10/2026. Sus pendientes describen aquella versión: disponibilidad, reserva e interfaz ya existen en el código actual. Las evidencias históricas no certifican el flujo integrado actual.
 
 Desde `apps/api`: `npm.cmd run build`, `npm.cmd run lint`, `npm.cmd test`, `npm.cmd run test:e2e` y `npm.cmd run test:db`. Las pruebas HTTP e2e usan persistencia simulada; `test:db` aplica todas las migraciones y prueba el flujo HTTP contra un esquema temporal único, que elimina al terminar. Requiere PostgreSQL y permisos para crear esquemas y la extensión `btree_gist`. No reinicia las tablas del esquema de la aplicación.
 
@@ -238,7 +253,18 @@ Desde `apps/web`: `npm.cmd run build`, `npm.cmd run lint` y `npm.cmd run test:e2
 
 Las migraciones no corrigen datos históricos incompatibles: si ya existen citas solapadas o anulaciones incompletas, se debe revisar esos datos antes de desplegarlas. En despliegue usar un rol de aplicación sin permisos de superusuario ni DDL; los triggers no protegen frente al administrador de la base de datos.
 
-### Avance de HU01 y siguiente paso
+### Comprobaciones de esta revisión (08/11/2026)
+
+| Comprobación | Resultado |
+| :--- | :--- |
+| API: `npm.cmd test` | 1 prueba aprobada. |
+| API: `npm.cmd run test:e2e` | 41 pruebas aprobadas en 4 archivos; persistencia simulada. |
+| Web: `npm.cmd run build` | Compilación correcta. |
+| Web: `npm.cmd run lint` | Sin errores. |
+
+En esta revisión no se ejecutaron `test:db` ni Playwright, ni se verificó el flujo integrado con PostgreSQL. Los resultados anteriores no acreditan la aceptación completa de las historias.
+
+### Alcance implementado de HU01 y siguientes pasos
 
 Primera parte implementada: modelos `Consultorio` y `HorarioMedico`, con horarios semanales por médico y consultorio. Días ISO (1=lunes, 7=domingo), horas locales de `America/Lima` y duración configurable de 20 minutos por defecto. PostgreSQL rechaza cruces del mismo médico o consultorio, días inválidos, intervalos invertidos y duraciones que no caben. Los bloques adyacentes están permitidos. Horas en minutos completos, dentro del mismo día (00:00 a 23:59); sin vigencias, feriados ni excepciones por fecha todavía. Prisma representa las horas `TIME` mediante `Date` con fecha de referencia `1970-01-01` y componente horario UTC: no convertirlas usando la zona horaria del servidor.
 
