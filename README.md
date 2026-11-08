@@ -385,3 +385,9 @@ Las pruebas HTTP verifican roles, validaciones, selección de campos, fecha de L
 ### Búsqueda exclusiva por DNI
 
 `GET /api/patients?q=87654321` acepta solo DNI de 8 dígitos (mantiene ceros iniciales), con coincidencia exacta y tipo de documento `DNI`. Devuelve un arreglo vacío o un paciente. Nombres, apellidos, DNI parciales y filtros como `limit` se rechazan con 400. La web habilita **Buscar** solo al completar los 8 dígitos. El paciente debe haberse registrado previamente en la misma base de datos usada por la API; no se crea automáticamente al buscarlo.
+
+### Interfaz de enfermería
+
+La web admite acceso de admisión y enfermería, comprobando el rol actual en `/auth/me`. Con `demo.enfermeria` se abre **Evaluación previa**: pacientes presentes y pendientes, selección de cita, identificación, formulario de signos vitales y observaciones y confirmación de preparación completada. La API vuelve a verificar todas las precondiciones al guardar. No se muestran controles de admisión ni se consulta el historial médico. La pantalla del médico sigue pendiente.
+
+Consultar la [guía de acceso y evaluación previa](apps/web/ADMISSION.md) para campos, errores y límites. Las pruebas de navegador incluyen registro, validación, conflictos, paginación, permisos, sesión, doble envío, fallos de conexión y adaptación móvil. La verificación con PostgreSQL real sigue pendiente.
