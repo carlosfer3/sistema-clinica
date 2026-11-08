@@ -221,6 +221,7 @@ El seed rechaza `NODE_ENV=production`; verificar además que `DATABASE_URL` apun
 | `GET /api/agenda/catalog` | admision, medico, enfermeria | Especialidades con médicos activos de rol médico y al menos un horario en consultorio activo; nombres e IDs para los selectores de agenda. Registra `READ_AGENDA_CATALOG`. |
 | `GET /api/agenda/availability?fecha=YYYY-MM-DD&especialidadId=1&medicoId=1` | admision, medico, enfermeria | Turnos futuros disponibles; `medicoId` es opcional. |
 | `POST /api/agenda/appointments` | admision | Reserva transaccional con auditoría; conflicto de ocupación devuelve 409. |
+| `POST /api/agenda/appointments/:id/arrival` | admision | Registra llegada de una cita presencial del día en Lima; no cambia su estado. |
 | `POST /api/patients` | admision | Registra únicamente datos demográficos y de contacto; rechaza antecedentes y alergias con 400; documento duplicado devuelve 409 y `patientId`. |
 | `GET /api/patients?q=texto&limit=20` | admision, medico, enfermeria | Busca por documento, nombres o apellidos; máximo 100 resultados; sin campos clínicos. |
 | `GET /api/patients/:id` | admision, medico, enfermeria | Ficha demográfica. |
@@ -311,3 +312,11 @@ El equipo sigue el estándar **[Conventional Commits](https://www.conventionalco
 
 ## ⚖️ Marco Legal y Normativo
 * **Requisito del proyecto asociado a la Ley N.° 29733:** auditar lecturas y modificaciones clínicas, restringir el acceso por rol y conservar entradas mediante anulación sustentada. La implementación actual cubre autenticación y pacientes; el resto de la HCE y la revisión integral de cumplimiento siguen pendientes.
+
+### Registro de llegada de pacientes
+
+`POST /api/agenda/appointments/:id/arrival`, con token de admisión y sin campos en el cuerpo, registra la hora del servidor en `llegadaEn`. Solo admite citas presenciales del día actual en `America/Lima`, en estado `programada`, `confirmada` o `reprogramada`. Se permite registrar la llegada antes o después de la hora programada, dentro del mismo día.
+
+Devuelve 200 con `{ id, estado, llegadaEn }`; 400 para ID/cuerpo inválido o cita de otro día, 404 para cita inexistente y 409 para modalidad o estado incompatible. Una repetición válida conserva la primera hora y no duplica auditoría. La actualización y `REGISTER_ARRIVAL` se guardan en una transacción con bloqueo de la cita; si falla la auditoría se revierte la llegada. La cita no pasa a `atendida`. El campo ya existe en las migraciones, sin cambios de esquema.
+
+Este incremento implementa la API de llegada; la interfaz de admisión, el listado de pendientes de enfermería (HU04) y el registro de signos vitales (HU10) siguen pendientes.

@@ -553,6 +553,77 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
     }
   });
 
+  it('registers concurrent arrivals once and rolls back an arrival if auditing fails', async () => {
+    const now = new Date();
+    const localDate = new Date(now.getTime() - 5 * 3600000)
+      .toISOString()
+      .slice(0, 10);
+    const start = new Date(`${localDate}T10:00:00-05:00`);
+    const data = {
+      pacienteId: patientId,
+      medicoId: doctorId,
+      creadoPor: doctorUserId,
+      fechaHoraInicio: start,
+      fechaHoraFin: new Date(start.getTime() + 20 * 60000),
+    };
+    const first = await db.cita.create({ data });
+    const path = `/api/agenda/appointments/${first.id}/arrival`;
+    const results = await Promise.all([
+      request(app.getHttpServer())
+        .post(path)
+        .auth(admissionToken, { type: 'bearer' }),
+      request(app.getHttpServer())
+        .post(path)
+        .auth(admissionToken, { type: 'bearer' }),
+    ]);
+    expect(results.map((r) => r.status)).toEqual([200, 200]);
+    expect(results[0].body.llegadaEn).toBe(results[1].body.llegadaEn);
+    expect(results[0].body.estado).toBe('programada');
+    expect(
+      await db.bitacoraAuditoria.count({
+        where: {
+          accion: 'REGISTER_ARRIVAL',
+          recurso: `agenda/appointments/${first.id}`,
+        },
+      }),
+    ).toBe(1);
+    const second = await db.cita.create({
+      data: {
+        ...data,
+        fechaHoraInicio: data.fechaHoraFin,
+        fechaHoraFin: new Date(start.getTime() + 40 * 60000),
+      },
+    });
+    await db.$executeRawUnsafe(
+      `CREATE FUNCTION reject_arrival_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.accion = 'REGISTER_ARRIVAL' THEN RAISE EXCEPTION 'Test audit failure'; END IF; RETURN NEW; END; $$`,
+    );
+    await db.$executeRawUnsafe(
+      'CREATE TRIGGER test_arrival_audit BEFORE INSERT ON bitacora_auditoria FOR EACH ROW EXECUTE FUNCTION reject_arrival_audit()',
+    );
+    try {
+      await request(app.getHttpServer())
+        .post(`/api/agenda/appointments/${second.id}/arrival`)
+        .auth(admissionToken, { type: 'bearer' })
+        .expect(500);
+      expect(
+        await db.cita.findUnique({ where: { id: second.id } }),
+      ).toMatchObject({ llegadaEn: null, estado: 'programada' });
+      expect(
+        await db.bitacoraAuditoria.count({
+          where: {
+            accion: 'REGISTER_ARRIVAL',
+            recurso: `agenda/appointments/${second.id}`,
+          },
+        }),
+      ).toBe(0);
+    } finally {
+      await db.$executeRawUnsafe(
+        'DROP TRIGGER test_arrival_audit ON bitacora_auditoria',
+      );
+      await db.$executeRawUnsafe('DROP FUNCTION reject_arrival_audit()');
+    }
+  });
+
   const time = (value: string) => new Date(`1970-01-01T${value}:00.000Z`);
 
   it('stores weekly local schedules with a default duration and accepts adjacent blocks', async () => {

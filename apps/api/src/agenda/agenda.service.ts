@@ -150,6 +150,67 @@ export class AgendaService {
     );
   }
 
+  async registerArrival(id: number, actorId: number, ip?: string) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        // Serialize arrival requests so retries preserve the original timestamp
+        // and produce only one arrival audit entry across API processes.
+        await tx.$queryRaw`SELECT id FROM cita WHERE id = ${id} FOR UPDATE`;
+        const appointment = await tx.cita.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            fechaHoraInicio: true,
+            estado: true,
+            modalidad: true,
+            llegadaEn: true,
+          },
+        });
+        if (!appointment) throw new NotFoundException('Appointment not found');
+        const now = new Date(Date.now());
+        const limaDate = (instant: Date) =>
+          new Date(instant.getTime() - 5 * 3600000).toISOString().slice(0, 10);
+        if (limaDate(appointment.fechaHoraInicio) !== limaDate(now)) {
+          throw new BadRequestException(
+            'Arrival requires an appointment for today in America/Lima',
+          );
+        }
+        if (
+          appointment.modalidad !== 'presencial' ||
+          !['programada', 'confirmada', 'reprogramada'].includes(
+            appointment.estado,
+          )
+        ) {
+          throw new ConflictException(
+            'Appointment is not eligible for arrival',
+          );
+        }
+        if (appointment.llegadaEn) {
+          return {
+            id: appointment.id,
+            estado: appointment.estado,
+            llegadaEn: appointment.llegadaEn,
+          };
+        }
+        const result = await tx.cita.update({
+          where: { id },
+          data: { llegadaEn: now },
+          select: { id: true, estado: true, llegadaEn: true },
+        });
+        await tx.bitacoraAuditoria.create({
+          data: {
+            usuarioId: actorId,
+            accion: 'REGISTER_ARRIVAL',
+            recurso: `agenda/appointments/${id}`,
+            ipOrigen: ip,
+          },
+        });
+        return result;
+      },
+      { isolationLevel: 'ReadCommitted' },
+    );
+  }
+
   async availability(dto: AvailabilityDto, actorId: number, ip?: string) {
     // Lima uses UTC-05:00 year-round. Weekly TIME values are wall-clock times,
     // represented by Prisma with a UTC reference date; never use server-local getters.

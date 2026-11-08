@@ -1,4 +1,16 @@
-import { Body, Controller, Get, Ip, Post, Query, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Ip,
+  Param,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
+import { ArrivalParamsDto } from './arrival-params.dto.js';
 import { Roles } from '../auth/auth.decorators.js';
 import type { AuthRequest } from '../auth/auth.types.js';
 import { AvailabilityDto } from './availability.dto.js';
@@ -23,6 +35,23 @@ export class AgendaController {
     @Ip() ip: string,
   ) {
     return this.agenda.create(dto, req.user!.id, ip);
+  }
+
+  @Post('appointments/:id/arrival')
+  @HttpCode(200)
+  @Roles('admision')
+  registerArrival(
+    @Param() params: ArrivalParamsDto,
+    @Body() body: Record<string, unknown> | undefined,
+    @Req() req: AuthRequest,
+    @Ip() ip: string,
+  ) {
+    if (body && Object.keys(body).length > 0) {
+      throw new BadRequestException(
+        'Arrival registration does not accept body fields',
+      );
+    }
+    return this.agenda.registerArrival(params.id, req.user!.id, ip);
   }
 
   @Get('availability')
