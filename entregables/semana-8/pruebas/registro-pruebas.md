@@ -108,3 +108,11 @@ Plantilla para cada nueva ejecución:
 Los horarios no tienen API HTTP ni gestión de excepciones por fecha. Las pruebas de horarios validan esta parte técnica, no el flujo completo de reserva. HU01 permanece pendiente hasta implementar y probar disponibilidad, reserva concurrente y la interfaz, además de cumplir la Definition of Done.
 
 
+
+## Verificación automatizada del incremento HU08 — 08/11/2026
+
+Sobre los cambios locales de consultas y receta manual: compilación y lint de API correctos; `npm.cmd run test:e2e`, 228 pruebas aprobadas en 10 archivos, con persistencia simulada; `npm.cmd run test:db`, 31 pruebas aprobadas en 3 archivos, contra PostgreSQL real y esquemas temporales con todas las migraciones aplicadas. Esta corrida no reemplaza las evidencias manuales históricas ni representa aceptación académica de HU08.
+
+La nueva suite `apps/api/test/consultations.db-spec.ts` comprueba almacenamiento y lectura autorizada de receta manual, bloqueo de lectura por enfermería/médico ajeno, conservación de textos tras actualizar el catálogo, rechazo de edición/borrado, concurrencia 201/409, consulta sin receta, reversión de consulta/diagnósticos/receta/estado de cita ante fallo de auditoría y seed CIE-10 idempotente con bloqueo en producción. Los errores de auditoría que aparecen en consola son fallos inducidos por las pruebas y sus rechazos/reversiones son resultados esperados. Se crean y eliminan únicamente esquemas temporales, sin modificar los datos habituales de la aplicación.
+
+La UI del médico y el flujo completo de consulta por navegador no se ejecutaron porque todavía no están implementados. El catálogo de demostración es un subconjunto, no la clasificación CIE-10 completa.

@@ -79,7 +79,7 @@ Dado un paciente en atención, cuando registro la consulta con al menos un diagn
 **Cumple INVEST:** necesita que exista el paciente (HU06), pero se construye y prueba por sí sola (Independiente); el catálogo CIE-10 y el formato de la receta se negocian con el equipo médico (Negociable); sin consultas registradas la historia unificada de HU03 no tendría qué mostrar, por lo que es muy valiosa (Valiosa); se estimó en 8 puntos por el catálogo CIE-10 y las tres entidades asociadas (diagnóstico, indicaciones y receta) (Estimable); y se verifica con el criterio definido (Pequeña y Testeable).
 
 
-**Receta manual — alcance de la primera versión (pendiente de implementación):**
+**Receta manual — alcance de la primera versión (API implementada; interfaz pendiente):**
 
 El médico puede registrar una consulta sin receta o agregar uno o varios medicamentos. Para cada medicamento escribe manualmente nombre, dosis, vía de administración, frecuencia y duración; las indicaciones adicionales son opcionales. Cada medicamento se almacena como un elemento independiente, vinculado a la receta y a la consulta, conservando la asociación con el paciente y la autoría médica. La fecha y el autor se determinan en el servidor. No hay catálogo ni autocompletado en esta versión.
 
@@ -90,6 +90,8 @@ El médico puede registrar una consulta sin receta o agregar uno o varios medica
 3. Dada una consulta válida, cuando el médico no indica medicamentos, entonces puede guardarla sin receta.
 4. Dado un usuario de admisión o enfermería, cuando intenta crear o modificar una receta, entonces el sistema rechaza y audita la acción. Enfermería no obtiene acceso a recetas ni al historial médico.
 5. Dada una receta guardada, cuando el médico consulta el episodio de atención autorizado, entonces visualiza los medicamentos y sus indicaciones asociados a esa consulta, con autoría y fecha, sin reemplazar recetas de otros episodios.
+
+> **Estado de HU08:** API de consulta y receta manual implementada, con diagnóstico principal y secundarios de catálogo, validación de cita preparada y autoría médica. Al guardar se completa la atención de la cita. La receta es opcional y se guarda por elementos; no existe catálogo de medicamentos. Swagger y pruebas HTTP/PostgreSQL disponibles. El catálogo CIE-10 de demostración solo incluye dos códigos; interfaz médica, catálogo completo, HU03 y HU09 por API siguen pendientes. No se declara la historia aceptada hasta completar la DoD.
 
 **Evolución prevista para la siguiente versión:** al escribir el nombre, se mostrarán coincidencias de un catálogo para seleccionar un medicamento; el médico seguirá ingresando dosis, vía, frecuencia y duración. El diseño debe conservar el texto de la prescripción original, permitir asociar posteriormente un medicamento del catálogo y mantener legibles las recetas manuales previas. El catálogo, autocompletado y sus endpoints quedan fuera de la primera versión. Los 8 puntos actuales de HU08 se mantienen como estimación de referencia, sujeta a revisión al planificar la implementación.
 

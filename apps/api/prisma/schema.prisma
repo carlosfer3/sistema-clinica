@@ -210,6 +210,8 @@ model Consulta {
   medico          Medico   @relation(fields: [medicoId], references: [id])
   cita            Cita?    @relation(fields: [citaId], references: [id])
   usuarioAnulador Usuario? @relation("ConsultaAnuladaPor", fields: [anuladoPor], references: [id])
+  diagnosticos ConsultaDiagnostico[]
+  recetaItems RecetaItem[]
 
   @@index([pacienteId, fechaHora])
   @@map("consulta")
@@ -247,4 +249,40 @@ model EvaluacionPrevia {
   cita Cita @relation(fields: [citaId], references: [id], onDelete: Restrict)
   autor Usuario @relation(fields: [registradoPor], references: [id], onDelete: Restrict)
   @@map("evaluacion_previa")
+}
+
+model Cie10 {
+  codigo String @id @db.VarChar(10)
+  descripcion String @db.VarChar(250)
+  diagnosticos ConsultaDiagnostico[]
+  @@map("cie10")
+}
+
+model ConsultaDiagnostico {
+  id Int @id @default(autoincrement())
+  consultaId Int @map("consulta_id")
+  codigo String @map("cie10_codigo") @db.VarChar(10)
+  descripcion String @db.VarChar(250)
+  tipo String @db.VarChar(15)
+  orden Int
+  consulta Consulta @relation(fields: [consultaId], references: [id], onDelete: Restrict)
+  cie10 Cie10 @relation(fields: [codigo], references: [codigo], onDelete: Restrict)
+  @@unique([consultaId, codigo])
+  @@unique([consultaId, orden])
+  @@map("consulta_diagnostico")
+}
+
+model RecetaItem {
+  id Int @id @default(autoincrement())
+  consultaId Int @map("consulta_id")
+  orden Int
+  medicamento String @db.VarChar(150)
+  dosis String @db.VarChar(100)
+  via String @db.VarChar(80)
+  frecuencia String @db.VarChar(100)
+  duracion String @db.VarChar(100)
+  indicaciones String? @db.VarChar(500)
+  consulta Consulta @relation(fields: [consultaId], references: [id], onDelete: Restrict)
+  @@unique([consultaId, orden])
+  @@map("receta_item")
 }

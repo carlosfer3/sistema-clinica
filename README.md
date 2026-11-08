@@ -205,7 +205,7 @@ Con la API iniciada:
 - **Contrato JSON:** [http://localhost:3000/api/openapi.json](http://localhost:3000/api/openapi.json).
 - **Contrato YAML:** [http://localhost:3000/api/openapi.yaml](http://localhost:3000/api/openapi.yaml).
 
-Los 15 endpoints actuales están documentados por módulo, con cuerpos, parámetros, restricciones, respuestas y errores. Las rutas protegidas declaran Bearer JWT y roles permitidos (`x-roles`), derivados del mismo decorador que usa el guard. La documentación es pública y no consulta PostgreSQL para generarse; las operaciones de negocio conservan sus permisos y requieren la base de datos. No se incluyen contraseñas reales, tokens ni hashes.
+Los 18 endpoints actuales están documentados por módulo, con cuerpos, parámetros, restricciones, respuestas y errores. Las rutas protegidas declaran Bearer JWT y roles permitidos (`x-roles`), derivados del mismo decorador que usa el guard. La documentación es pública y no consulta PostgreSQL para generarse; las operaciones de negocio conservan sus permisos y requieren la base de datos. No se incluyen contraseñas reales, tokens ni hashes.
 
 Para probar desde Swagger, ejecutar `POST /api/auth/login` con una cuenta local, copiar `accessToken` y pegarlo en **Authorize** (solo el token). El token no se conserva al recargar. **Try it out** ejecuta operaciones reales contra la API: usar datos ficticios del entorno de desarrollo.
 
@@ -391,3 +391,11 @@ Las pruebas HTTP verifican roles, validaciones, selección de campos, fecha de L
 La web admite acceso de admisión y enfermería, comprobando el rol actual en `/auth/me`. Con `demo.enfermeria` se abre **Evaluación previa**: pacientes presentes y pendientes, selección de cita, identificación, formulario de signos vitales y observaciones y confirmación de preparación completada. La API vuelve a verificar todas las precondiciones al guardar. No se muestran controles de admisión ni se consulta el historial médico. La pantalla del médico sigue pendiente.
 
 Consultar la [guía de acceso y evaluación previa](apps/web/ADMISSION.md) para campos, errores y límites. Las pruebas de navegador incluyen registro, validación, conflictos, paginación, permisos, sesión, doble envío, fallos de conexión y adaptación móvil. La verificación con PostgreSQL real sigue pendiente.
+
+### Consulta médica y receta manual (HU08)
+
+API implementada: catálogo CIE-10, registro final de consulta con diagnósticos e indicaciones y receta manual opcional de varios medicamentos. Solo el médico asignado puede registrar la consulta de una cita presencial de hoy con llegada y evaluación de enfermería completadas; al guardar, la cita pasa a atendida. Consulta, receta y auditoría son transaccionales. Admisión y enfermería no acceden a estas rutas. Cada medicamento conserva nombre, dosis, vía, frecuencia y duración como textos independientes, sin catálogo de medicamentos en esta versión.
+
+Requiere migración y carga del catálogo. El nuevo `npm.cmd run db:seed:cie10:demo` (desde `apps/api`) carga solo J00 y Z00.0 para demostración, sin sobrescribir descripciones; no equivale al catálogo CIE-10 completo. Ver [contrato, preparación y límites de HU08](apps/api/CONSULTATIONS.md). La pantalla médica, HCE cronológica, anulación por API y catálogo completo siguen pendientes.
+
+Verificación del incremento: compilación y lint correctos; 228 pruebas HTTP con persistencia simulada y 31 pruebas de integración PostgreSQL aprobadas, aplicando todas las migraciones en esquemas temporales. Las migraciones del entorno habitual deben aplicarse por separado.

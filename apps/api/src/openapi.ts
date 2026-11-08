@@ -34,6 +34,10 @@ export function setupOpenApi(app: INestApplication) {
     'NursingQueueDto',
     'DailyAppointmentsDto',
     'VitalSignsDto',
+    'CreateConsultationDto',
+    'DiagnosisDto',
+    'PrescriptionItemDto',
+    'DiagnosisSearchDto',
   ]) {
     const schema = document.components.schemas[name];
     if (schema && !('$ref' in schema)) schema.additionalProperties = false;

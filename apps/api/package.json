@@ -23,7 +23,8 @@
     "test:db": "vitest run --config ./vitest.config.db.ts",
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "db:seed:demo": "node prisma/seed-demo.mjs"
+    "db:seed:demo": "node prisma/seed-demo.mjs",
+    "db:seed:cie10:demo": "node prisma/seed-cie10-demo.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

@@ -30,6 +30,9 @@ describe('OpenAPI contract and Swagger UI', () => {
   });
   const endpoints = [
     ['get', '/api'],
+    ['get', '/api/consultations/diagnoses'],
+    ['post', '/api/consultations'],
+    ['get', '/api/consultations/{id}'],
     ['post', '/api/auth/login'],
     ['get', '/api/auth/me'],
     ['get', '/api/patients'],
