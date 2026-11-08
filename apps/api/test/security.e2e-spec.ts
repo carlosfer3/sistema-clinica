@@ -12,6 +12,8 @@ describe('Authentication, roles and validation (HTTP, mocked database)', () => {
   let jwt: JwtService;
   const auditCreate = vi.fn().mockResolvedValue({ id: 1 });
   const findUnique = vi.fn();
+  const patientFindUnique = vi.fn();
+  const transaction = vi.fn();
   const patientFindMany = vi.fn().mockResolvedValue([]);
 
   beforeAll(async () => {
@@ -21,7 +23,8 @@ describe('Authentication, roles and validation (HTTP, mocked database)', () => {
       .useValue({
         usuario: { findUnique },
         bitacoraAuditoria: { create: auditCreate },
-        paciente: { findMany: patientFindMany },
+        paciente: { findMany: patientFindMany, findUnique: patientFindUnique },
+        $transaction: transaction,
       })
       .compile();
     app = module.createNestApplication();
@@ -90,20 +93,71 @@ describe('Authentication, roles and validation (HTTP, mocked database)', () => {
       .expect(401);
   });
 
-  it('denies admission access to clinical data and audits it', async () => {
+  it.each(['admision', 'enfermeria'])(
+    'denies %s access to clinical data and audits it',
+    async (rol) => {
+      findUnique.mockResolvedValue({ id: 1, rol, activo: true });
+      const token = await jwt.signAsync({ sub: 1 });
+      await request(app.getHttpServer())
+        .get('/api/patients/1/clinical-profile')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403);
+      expect(patientFindUnique).not.toHaveBeenCalled();
+      expect(auditCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            usuarioId: 1,
+            accion: 'ACCESS_DENIED',
+          }),
+        }),
+      );
+    },
+  );
+
+  it.each([
+    ['antecedentes', [{ tipo: 'cronica', descripcion: 'Dato ficticio' }]],
+    ['alergias', [{ sustancia: 'Sustancia ficticia' }]],
+    ['antecedentes', []],
+    ['alergias', []],
+  ])(
+    'rejects admission registration with clinical field %s',
+    async (field, value) => {
+      const token = await jwt.signAsync({ sub: 1 });
+      const response = await request(app.getHttpServer())
+        .post('/api/patients')
+        .auth(token, { type: 'bearer' })
+        .send({
+          tipoDocumento: 'DNI',
+          numeroDocumento: '87654321',
+          nombres: 'Paciente',
+          apellidos: 'Prueba',
+          fechaNacimiento: '1990-01-01',
+          sexo: 'F',
+          telefono: '999888777',
+          correo: 'ficticio@example.test',
+          [field]: value,
+        })
+        .expect(400);
+      expect(response.body.message).toContain(
+        `property ${field} should not exist`,
+      );
+      expect(transaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it('allows a doctor to read the clinical profile', async () => {
+    findUnique.mockResolvedValue({ id: 1, rol: 'medico', activo: true });
+    patientFindUnique.mockResolvedValue({
+      id: 1,
+      antecedentes: [],
+      alergias: [],
+    });
     const token = await jwt.signAsync({ sub: 1 });
     await request(app.getHttpServer())
       .get('/api/patients/1/clinical-profile')
-      .set('Authorization', `Bearer ${token}`)
-      .expect(403);
-    expect(auditCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          usuarioId: 1,
-          accion: 'ACCESS_DENIED',
-        }),
-      }),
-    );
+      .auth(token, { type: 'bearer' })
+      .expect(200, { id: 1, antecedentes: [], alergias: [] });
+    expect(patientFindUnique).toHaveBeenCalledOnce();
   });
 
   it('validates queries and rejects unknown fields', async () => {

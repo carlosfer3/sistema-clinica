@@ -49,7 +49,7 @@ export class PatientsController {
   }
 
   @Get(':id/clinical-profile')
-  @Roles('medico', 'enfermeria')
+  @Roles('medico')
   clinicalProfile(
     @Param('id', ParseIntPipe) id: number,
     @Req() req: AuthRequest,

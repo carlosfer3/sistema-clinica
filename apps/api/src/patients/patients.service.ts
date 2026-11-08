@@ -36,21 +36,19 @@ export class PatientsService {
     if (new Date(dto.fechaNacimiento) > new Date()) {
       throw new BadRequestException('Birth date cannot be in the future');
     }
-    const { antecedentes, alergias, ...data } = dto;
     try {
       return await this.prisma.$transaction(async (tx) => {
         const patient = await tx.paciente.create({
           data: {
-            ...data,
+            tipoDocumento: dto.tipoDocumento,
+            numeroDocumento: dto.numeroDocumento,
+            nombres: dto.nombres,
+            apellidos: dto.apellidos,
             fechaNacimiento: new Date(dto.fechaNacimiento),
-            antecedentes: {
-              create: antecedentes?.map((item) => ({
-                tipo: item.tipo,
-                descripcion: item.descripcion,
-                desde: item.desde ? new Date(item.desde) : undefined,
-              })),
-            },
-            alergias: { create: alergias },
+            sexo: dto.sexo,
+            telefono: dto.telefono,
+            correo: dto.correo,
+            direccion: dto.direccion,
           },
           select: demographics,
         });

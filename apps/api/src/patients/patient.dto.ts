@@ -1,7 +1,5 @@
 import { Transform, Type } from 'class-transformer';
 import {
-  ArrayMaxSize,
-  IsArray,
   IsDateString,
   IsEmail,
   IsIn,
@@ -13,35 +11,7 @@ import {
   MaxLength,
   Min,
   MinLength,
-  ValidateNested,
 } from 'class-validator';
-
-export class AntecedenteDto {
-  @IsIn(['personal', 'familiar', 'quirurgico', 'cronica'])
-  tipo: string;
-
-  @IsString()
-  @Matches(/\S/)
-  @MaxLength(300)
-  descripcion: string;
-
-  @IsOptional()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/)
-  @IsDateString({ strict: true })
-  desde?: string;
-}
-
-export class AlergiaDto {
-  @IsString()
-  @Matches(/\S/)
-  @MaxLength(100)
-  sustancia: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  reaccion?: string;
-}
 
 export class CreatePatientDto {
   @IsIn(['DNI', 'CE', 'PASAPORTE'])
@@ -80,20 +50,6 @@ export class CreatePatientDto {
   @IsString()
   @MaxLength(200)
   direccion?: string;
-
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(50)
-  @ValidateNested({ each: true })
-  @Type(() => AntecedenteDto)
-  antecedentes?: AntecedenteDto[];
-
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(50)
-  @ValidateNested({ each: true })
-  @Type(() => AlergiaDto)
-  alergias?: AlergiaDto[];
 }
 
 export class SearchPatientsDto {

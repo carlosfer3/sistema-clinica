@@ -66,7 +66,7 @@ El incremento actual permite a admisión iniciar sesión, buscar un paciente exi
 | Laboratorio, facturación, reportes y portal (M3–M6) | Planificados para Sprint 2; sin módulos funcionales implementados. | Implementación y validación. |
 | Infraestructura y entrega | Docker Compose para PostgreSQL y Redis; API y web locales. | Contenedores de aplicaciones, CI/CD, respaldo/restauración y Swagger. |
 
-> **Alcance acordado de HU04/HU06/HU10:** admisión registra solo datos demográficos y de contacto; enfermería consulta pacientes con llegada registrada y captura signos vitales y observaciones, sin acceso al historial médico; el médico consulta la evaluación previa y la HCE. Las [historias actualizadas](entregables/semana-6/historias-usuario-update.md) incluyen los criterios. La API descrita más abajo conserva el comportamiento anterior y está pendiente de adecuación, junto con sus pruebas.
+> **Alcance acordado de HU04/HU06/HU10:** admisión registra solo datos demográficos y de contacto; enfermería consulta pacientes con llegada registrada y captura signos vitales y observaciones, sin acceso al historial médico; el médico consulta la evaluación previa y la HCE. Las [historias actualizadas](entregables/semana-6/historias-usuario-update.md) incluyen los criterios. La API ya rechaza antecedentes y alergias en el alta de admisión y restringe el perfil clínico al médico; HU04 y HU10 siguen pendientes.
 
 No se declara ninguna historia terminada hasta completar criterios de aceptación, revisión por PR y validación en contenedores conforme a la DoD. Los modelos de datos por sí solos no constituyen módulos funcionales completos.
 
@@ -75,7 +75,7 @@ No se declara ninguna historia terminada hasta completar criterios de aceptació
   * Arquitectura de software modelada bajo el estándar C4 (Contexto, Contenedores y Componentes).
   * Modelo de Base de Datos relacional normalizado con soporte DDL de borrado lógico (`ck_consulta_anulacion`), diagramas ER y scripts SQL.
   * Wireframes de agendamiento, alertas y HCE unificada.
-* **Implementado en backend:** conexión Prisma, prefijo `/api`, validación de DTO, CORS configurable, login JWT, permisos por rol y auditoría explícita en servicios y guard. Registro de pacientes sin cuenta de portal, antecedentes/alergias, búsqueda por documento o nombre y consulta de ficha. Los hashes nunca se devuelven en la API.
+* **Implementado en backend:** conexión Prisma, prefijo `/api`, validación de DTO, CORS configurable, login JWT, permisos por rol y auditoría explícita en servicios y guard. Registro de pacientes sin cuenta de portal, solo con datos demográficos y de contacto, búsqueda por documento o nombre y consulta de ficha. Los hashes nunca se devuelven en la API.
 * **Integridad en PostgreSQL:** migraciones con anulación justificada, bloqueo de borrado físico de consultas, antecedentes y alergias, bitácora append-only y exclusión de horarios solapados por médico. Las restricciones SQL complementan el esquema Prisma.
 * **Interfaz de admisión implementada:** acceso con cuenta de admisión, búsqueda y selección de pacientes, catálogo de especialidades/médicos, consulta de disponibilidad y confirmación de reserva. Maneja turnos ocupados (409) y pérdida de sesión (401). Ver [guía de la interfaz](apps/web/ADMISSION.md).
 * **Pendiente:** interfaz clínica, registro de pacientes desde la web, listado/reprogramación/cancelación de citas, CIE-10/recetas/signos vitales/HCE cronológica, notificaciones, respaldo/restauración, Swagger y CI/CD. HU01 cuenta con horarios, disponibilidad y reserva por API y web. HU06, HU07 y HU17 tienen avance de backend; ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
@@ -221,10 +221,10 @@ El seed rechaza `NODE_ENV=production`; verificar además que `DATABASE_URL` apun
 | `GET /api/agenda/catalog` | admision, medico, enfermeria | Especialidades con médicos activos de rol médico y al menos un horario en consultorio activo; nombres e IDs para los selectores de agenda. Registra `READ_AGENDA_CATALOG`. |
 | `GET /api/agenda/availability?fecha=YYYY-MM-DD&especialidadId=1&medicoId=1` | admision, medico, enfermeria | Turnos futuros disponibles; `medicoId` es opcional. |
 | `POST /api/agenda/appointments` | admision | Reserva transaccional con auditoría; conflicto de ocupación devuelve 409. |
-| `POST /api/patients` | admision | Registra datos, antecedentes y alergias; documento duplicado devuelve 409 y `patientId`. |
+| `POST /api/patients` | admision | Registra únicamente datos demográficos y de contacto; rechaza antecedentes y alergias con 400; documento duplicado devuelve 409 y `patientId`. |
 | `GET /api/patients?q=texto&limit=20` | admision, medico, enfermeria | Busca por documento, nombres o apellidos; máximo 100 resultados; sin campos clínicos. |
 | `GET /api/patients/:id` | admision, medico, enfermeria | Ficha demográfica. |
-| `GET /api/patients/:id/clinical-profile` | medico, enfermeria | Ficha con antecedentes y alergias; todavía no es la HCE cronológica de HU03. |
+| `GET /api/patients/:id/clinical-profile` | medico | Ficha con antecedentes y alergias; todavía no es la HCE cronológica de HU03. |
 
 Enviar `Authorization: Bearer <accessToken>` en rutas protegidas. Los usuarios inactivos pierden acceso aunque el token no haya expirado. Las rutas nuevas requieren declarar sus roles explícitamente. Las operaciones de pacientes registran auditoría; futuras rutas clínicas deberán integrar el mismo servicio. Si no se puede escribir auditoría, no se devuelve información del paciente.
 
@@ -239,9 +239,7 @@ Ejemplo de registro (solo datos ficticios):
   "fechaNacimiento": "1990-01-01",
   "sexo": "F",
   "telefono": "999888777",
-  "correo": "ficticio@example.test",
-  "antecedentes": [{ "tipo": "cronica", "descripcion": "Antecedente ficticio" }],
-  "alergias": [{ "sustancia": "Sustancia ficticia" }]
+  "correo": "ficticio@example.test"
 }
 ```
 

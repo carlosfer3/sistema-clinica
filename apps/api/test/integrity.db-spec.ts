@@ -18,6 +18,7 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
   let app: INestApplication;
   let admissionToken: string;
   let doctorToken: string;
+  let nurseToken: string;
   let patientId: number;
   let doctorId: number;
   let doctorUserId: number;
@@ -32,8 +33,6 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
     sexo: 'F',
     telefono: '999888777',
     correo: 'ficticio@example.test',
-    antecedentes: [{ tipo: 'cronica', descripcion: 'Antecedente ficticio' }],
-    alergias: [{ sustancia: 'Sustancia ficticia' }],
   };
 
   beforeAll(async () => {
@@ -62,6 +61,15 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
         passwordHash,
         rol: 'admision',
         nombres: 'Admision',
+        apellidos: 'Prueba',
+      },
+    });
+    await db.usuario.create({
+      data: {
+        username: 'nurse-test',
+        passwordHash,
+        rol: 'enfermeria',
+        nombres: 'Enfermeria',
         apellidos: 'Prueba',
       },
     });
@@ -94,14 +102,16 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
     app = module.createNestApplication();
     configureApp(app);
     await app.init();
-    for (const username of ['admission-test', 'doctor-test']) {
+    for (const username of ['admission-test', 'doctor-test', 'nurse-test']) {
       const response = await request(app.getHttpServer())
         .post('/api/auth/login')
         .send({ username, password: 'fictitious-test-password' })
         .expect(200);
       if (username === 'admission-test')
         admissionToken = response.body.accessToken;
-      else doctorToken = response.body.accessToken;
+      else if (username === 'doctor-test')
+        doctorToken = response.body.accessToken;
+      else nurseToken = response.body.accessToken;
     }
   });
 
@@ -143,6 +153,32 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
     ).toBe(1);
   });
 
+  it.each([
+    { antecedentes: [{ tipo: 'cronica', descripcion: 'Dato ficticio' }] },
+    { alergias: [{ sustancia: 'Sustancia ficticia' }] },
+  ])(
+    'rejects clinical data at registration without writing anything: %j',
+    async (clinical) => {
+      const before = await db.paciente.count();
+      const audits = await db.bitacoraAuditoria.count({
+        where: { accion: 'CREATE_PATIENT' },
+      });
+      await request(app.getHttpServer())
+        .post('/api/patients')
+        .auth(admissionToken, { type: 'bearer' })
+        .send({ ...patient, numeroDocumento: '12345678', ...clinical })
+        .expect(400);
+      expect(await db.paciente.count()).toBe(before);
+      expect(await db.antecedente.count()).toBe(0);
+      expect(await db.alergia.count()).toBe(0);
+      expect(
+        await db.bitacoraAuditoria.count({
+          where: { accion: 'CREATE_PATIENT' },
+        }),
+      ).toBe(audits);
+    },
+  );
+
   it('rejects duplicate documents and identifies the existing patient', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/patients')
@@ -165,7 +201,17 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
     }
   });
 
-  it('allows a doctor to read the clinical profile and denies admission', async () => {
+  it('allows a doctor to read existing clinical data and denies admission', async () => {
+    await db.antecedente.create({
+      data: {
+        pacienteId: patientId,
+        tipo: 'cronica',
+        descripcion: 'Antecedente ficticio',
+      },
+    });
+    await db.alergia.create({
+      data: { pacienteId: patientId, sustancia: 'Sustancia ficticia' },
+    });
     await request(app.getHttpServer())
       .get(`/api/patients/${patientId}/clinical-profile`)
       .set('Authorization', `Bearer ${admissionToken}`)
@@ -181,6 +227,40 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
         where: { accion: 'READ_CLINICAL_PROFILE' },
       }),
     ).toBe(1);
+  });
+
+  it('denies nursing clinical access, audits the denial and still allows demographics', async () => {
+    const profilePath = `/api/patients/${patientId}/clinical-profile`;
+    const reads = await db.bitacoraAuditoria.count({
+      where: { accion: 'READ_CLINICAL_PROFILE' },
+    });
+    const response = await request(app.getHttpServer())
+      .get(profilePath)
+      .auth(nurseToken, { type: 'bearer' })
+      .expect(403);
+    expect(response.body).not.toHaveProperty('antecedentes');
+    expect(response.body).not.toHaveProperty('alergias');
+    expect(
+      await db.bitacoraAuditoria.count({
+        where: { accion: 'READ_CLINICAL_PROFILE' },
+      }),
+    ).toBe(reads);
+    expect(
+      await db.bitacoraAuditoria.count({
+        where: {
+          accion: 'ACCESS_DENIED',
+          recurso: { contains: 'clinical-profile' },
+          usuario: { username: 'nurse-test' },
+        },
+      }),
+    ).toBeGreaterThan(0);
+    const demographics = await request(app.getHttpServer())
+      .get(`/api/patients/${patientId}`)
+      .auth(nurseToken, { type: 'bearer' })
+      .expect(200);
+    expect(demographics.body.id).toBe(patientId);
+    expect(demographics.body).not.toHaveProperty('antecedentes');
+    expect(demographics.body).not.toHaveProperty('alergias');
   });
 
   it('enforces intervals, concurrent collisions, adjacency and cancellation', async () => {
