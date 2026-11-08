@@ -14,7 +14,7 @@ test('signs in with admission, keeps token out of storage and signs out', async 
   await expect(page.getByLabel('Contraseña', { exact: true })).toHaveValue('')
 })
 
-test('rejects invalid credentials and non-admission accounts', async ({ page }) => {
+test('rejects invalid credentials and unsupported staff roles', async ({ page }) => {
   await page.route('**/api/auth/login', route => route.fulfill({ status: 401, json: {} }))
   await page.goto('/')
   await page.getByLabel('Usuario', { exact: true }).fill('demo.admision')

@@ -17,8 +17,8 @@ export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
     try {
       const { accessToken } = await api<{ accessToken: string }>('/auth/login', { body: { username: username.trim(), password } })
       const user = await api<Session['user']>('/auth/me', { token: accessToken })
-      if (user.rol !== 'admision') {
-        setError('Esta área requiere una cuenta de admisión.')
+      if (!['admision', 'enfermeria'].includes(user.rol)) {
+        setError('Esta área requiere una cuenta de admisión o enfermería.')
         return
       }
       setPassword('')
@@ -37,13 +37,13 @@ export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
       <section className="login-intro">
         <p className="eyebrow">Atención que empieza con orden</p>
         <h1>Una agenda clara.<br />Una mejor atención.</h1>
-        <p>El espacio de admisión para coordinar las citas de nuestros pacientes.</p>
+        <p>El espacio del personal para coordinar citas y preparar la atención de nuestros pacientes.</p>
         <div className="intro-note"><span aria-hidden="true">+</span><div><strong>Clínica San Rafael</strong><p>Cuidamos cada paso de la atención.</p></div></div>
       </section>
       <section className="card login-card" aria-labelledby="login-title">
         <p className="eyebrow">Acceso del personal</p>
         <h2 id="login-title">Bienvenido de nuevo</h2>
-        <p>Ingresa con tu cuenta de admisión.</p>
+        <p>Ingresa con tu cuenta de admisión o enfermería.</p>
         <form onSubmit={submit} aria-busy={busy}>
           <label htmlFor="username">Usuario</label>
           <input id="username" autoComplete="username" required maxLength={50} value={username} onChange={e => setUsername(e.target.value)} disabled={busy} />

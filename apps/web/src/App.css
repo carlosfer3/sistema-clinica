@@ -101,3 +101,9 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .daily-pagination { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.5rem 0; }
 .arrival-confirmation { margin-top: 1.5rem; }
 @media (max-width: 760px) { .daily-row { grid-template-columns: 1fr; } .daily-toolbar { align-items: stretch; flex-direction: column; } .daily-toolbar > div { max-width: none; } }
+
+.nursing .daily-list { margin-top: 1.5rem; }
+.nursing .notice:not(.error) { background: #edf5f1; border: 1px solid #b8cbc5; color: #245c50; }
+.vital-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.5rem; }
+.vital-grid label { display: block; }
+@media (max-width: 760px) { .vital-grid { grid-template-columns: 1fr; } }

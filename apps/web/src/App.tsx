@@ -1,3 +1,4 @@
+import { Nursing } from './Nursing'
 import { DailyAppointments } from './DailyAppointments'
 import { useCallback, useState } from 'react'
 import { Agenda } from './Agenda'
@@ -19,12 +20,12 @@ function App() {
           <span>San Rafael<small>Sistema de gestión clínica</small></span>
         </a>
         <div className="session-actions">
-          <span className="badge">Admisión</span>
+          <span className="badge">{session ? session.user.rol === 'enfermeria' ? 'Enfermería' : 'Admisión' : 'Personal'}</span>
           {session && <button className="secondary" disabled={booking} onClick={() => { setSession(null); setExpired(false) }}>Cerrar sesión</button>}
         </div>
       </header>
       <main>
-        {!session ? <>{expired && <p role="alert" className="notice error">Tu sesión venció o perdió acceso. Inicia sesión nuevamente.</p>}<Login onLogin={value => { setExpired(false); setView('booking'); setSession(value) }} /></> : <><nav className="admission-navigation" aria-label="Opciones de admisión"><button className="secondary" aria-pressed={view === 'booking'} disabled={booking} onClick={() => setView('booking')}>Reservar cita</button><button className="secondary" aria-pressed={view === 'daily'} disabled={booking} onClick={() => setView('daily')}>Citas del día</button></nav>{view === 'booking' ? <Agenda session={session} onExpired={onExpired} onBookingChange={setBooking} /> : <DailyAppointments session={session} onExpired={onExpired} onBusyChange={setBooking} />}</>}
+        {!session ? <>{expired && <p role="alert" className="notice error">Tu sesión venció o perdió acceso. Inicia sesión nuevamente.</p>}<Login onLogin={value => { setExpired(false); setView('booking'); setSession(value) }} /></> : session.user.rol === 'enfermeria' ? <Nursing session={session} onExpired={onExpired} onBusyChange={setBooking} /> : <><nav className="admission-navigation" aria-label="Opciones de admisión"><button className="secondary" aria-pressed={view === 'booking'} disabled={booking} onClick={() => setView('booking')}>Reservar cita</button><button className="secondary" aria-pressed={view === 'daily'} disabled={booking} onClick={() => setView('daily')}>Citas del día</button></nav>{view === 'booking' ? <Agenda session={session} onExpired={onExpired} onBookingChange={setBooking} /> : <DailyAppointments session={session} onExpired={onExpired} onBusyChange={setBooking} />}</>}
       </main>
       <footer>SIGES SR · Clínica San Rafael<span>Uso exclusivo del personal autorizado</span></footer>
     </div>
