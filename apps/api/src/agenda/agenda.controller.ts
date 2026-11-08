@@ -1,3 +1,4 @@
+import { NursingQueueDto } from './nursing-queue.dto.js';
 import {
   BadRequestException,
   Body,
@@ -52,6 +53,16 @@ export class AgendaController {
       );
     }
     return this.agenda.registerArrival(params.id, req.user!.id, ip);
+  }
+
+  @Get('nursing-queue')
+  @Roles('enfermeria')
+  nursingQueue(
+    @Query() query: NursingQueueDto,
+    @Req() req: AuthRequest,
+    @Ip() ip: string,
+  ) {
+    return this.agenda.nursingQueue(query, req.user!.id, ip);
   }
 
   @Get('availability')

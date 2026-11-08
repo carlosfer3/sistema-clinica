@@ -1,3 +1,4 @@
+import { NursingQueueDto } from './nursing-queue.dto.js';
 import {
   BadRequestException,
   ConflictException,
@@ -209,6 +210,84 @@ export class AgendaService {
       },
       { isolationLevel: 'ReadCommitted' },
     );
+  }
+
+  async nursingQueue(query: NursingQueueDto, actorId: number, ip?: string) {
+    const today = new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
+    const dayStart = new Date(`${today}T00:00:00-05:00`);
+    const dayEnd = new Date(dayStart.getTime() + 86400000);
+    await this.audit.record(
+      actorId,
+      'READ_NURSING_QUEUE',
+      'agenda/nursing-queue',
+      ip,
+    );
+    const appointments = await this.prisma.cita.findMany({
+      where: {
+        fechaHoraInicio: { gte: dayStart, lt: dayEnd },
+        llegadaEn: { not: null },
+        preparacionCompletadaEn: null,
+        modalidad: 'presencial',
+        estado: { in: ['programada', 'confirmada', 'reprogramada'] },
+      },
+      select: {
+        id: true,
+        fechaHoraInicio: true,
+        llegadaEn: true,
+        paciente: {
+          select: {
+            id: true,
+            tipoDocumento: true,
+            numeroDocumento: true,
+            nombres: true,
+            apellidos: true,
+            fechaNacimiento: true,
+          },
+        },
+        medico: {
+          select: {
+            id: true,
+            usuario: { select: { nombres: true, apellidos: true } },
+            especialidad: { select: { id: true, nombre: true } },
+          },
+        },
+      },
+      orderBy: [{ llegadaEn: 'asc' }, { id: 'asc' }],
+      skip: (query.pagina - 1) * query.limite,
+      take: query.limite + 1,
+    });
+    return {
+      fecha: today,
+      zonaHoraria: 'America/Lima',
+      pagina: query.pagina,
+      limite: query.limite,
+      hayMas: appointments.length > query.limite,
+      pacientes: appointments.slice(0, query.limite).map((appointment) => {
+        const birth = appointment.paciente.fechaNacimiento
+          .toISOString()
+          .slice(0, 10);
+        const age =
+          Number(today.slice(0, 4)) -
+          Number(birth.slice(0, 4)) -
+          (today.slice(5) < birth.slice(5) ? 1 : 0);
+        return {
+          citaId: appointment.id,
+          paciente: {
+            id: appointment.paciente.id,
+            tipoDocumento: appointment.paciente.tipoDocumento,
+            numeroDocumento: appointment.paciente.numeroDocumento,
+            nombres: appointment.paciente.nombres,
+            apellidos: appointment.paciente.apellidos,
+            edad: age,
+          },
+          inicio: appointment.fechaHoraInicio,
+          llegadaEn: appointment.llegadaEn,
+          medico: { id: appointment.medico.id, ...appointment.medico.usuario },
+          especialidad: appointment.medico.especialidad,
+          estadoPreparacion: 'pendiente',
+        };
+      }),
+    };
   }
 
   async availability(dto: AvailabilityDto, actorId: number, ip?: string) {

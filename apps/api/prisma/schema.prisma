@@ -178,6 +178,7 @@ model Cita {
   modalidad       ModalidadCita @default(presencial)
   enlaceVirtual   String?       @map("enlace_virtual") @db.VarChar(300)
   llegadaEn       DateTime?     @map("llegada_en") @db.Timestamptz
+  preparacionCompletadaEn DateTime? @map("preparacion_completada_en") @db.Timestamptz
   creadoPor       Int           @map("creado_por")
   creadoEn        DateTime      @default(now()) @map("creado_en") @db.Timestamptz
 

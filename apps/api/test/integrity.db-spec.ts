@@ -624,6 +624,76 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
     }
   });
 
+  it('lists only arrived, pending, in-person appointments for today without clinical data', async () => {
+    const now = new Date();
+    const date = new Date(now.getTime() - 5 * 3600000)
+      .toISOString()
+      .slice(0, 10);
+    const start = new Date(`${date}T12:00:00-05:00`);
+    const make = async (offset: number, extra: object = {}) =>
+      db.cita.create({
+        data: {
+          pacienteId: patientId,
+          medicoId: doctorId,
+          creadoPor: doctorUserId,
+          fechaHoraInicio: new Date(start.getTime() + offset * 60000),
+          fechaHoraFin: new Date(start.getTime() + (offset + 20) * 60000),
+          llegadaEn: now,
+          ...extra,
+        },
+      });
+    const pending = await make(0);
+    const excluded = await Promise.all([
+      make(20, { llegadaEn: null }),
+      make(40, { estado: 'cancelada' }),
+      make(60, { estado: 'atendida' }),
+      make(80, { preparacionCompletadaEn: now }),
+      make(100, { modalidad: 'virtual' }),
+      make(120, { estado: 'no_asistio' }),
+      make(1440),
+      make(-1440),
+    ]);
+    const response = await request(app.getHttpServer())
+      .get('/api/agenda/nursing-queue?limite=100')
+      .auth(nurseToken, { type: 'bearer' })
+      .expect(200);
+    const ids = response.body.pacientes.map(
+      (item: { citaId: number }) => item.citaId,
+    );
+    expect(ids).toContain(pending.id);
+    for (const appointment of excluded)
+      expect(ids).not.toContain(appointment.id);
+    const entry = response.body.pacientes.find(
+      (item: { citaId: number }) => item.citaId === pending.id,
+    );
+    expect(Object.keys(entry.paciente).sort()).toEqual(
+      [
+        'id',
+        'tipoDocumento',
+        'numeroDocumento',
+        'nombres',
+        'apellidos',
+        'edad',
+      ].sort(),
+    );
+    expect(entry.estadoPreparacion).toBe('pendiente');
+    expect(JSON.stringify(response.body)).not.toContain('Antecedente ficticio');
+    expect(JSON.stringify(response.body)).not.toContain('Sustancia ficticia');
+    const completed = excluded[3];
+    await expect(
+      db.cita.update({
+        where: { id: completed.id },
+        data: { llegadaEn: null },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      db.cita.update({
+        where: { id: pending.id },
+        data: { preparacionCompletadaEn: new Date(now.getTime() - 1000) },
+      }),
+    ).rejects.toThrow();
+  });
+
   const time = (value: string) => new Date(`1970-01-01T${value}:00.000Z`);
 
   it('stores weekly local schedules with a default duration and accepts adjacent blocks', async () => {

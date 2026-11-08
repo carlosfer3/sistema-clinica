@@ -222,6 +222,7 @@ El seed rechaza `NODE_ENV=production`; verificar además que `DATABASE_URL` apun
 | `GET /api/agenda/availability?fecha=YYYY-MM-DD&especialidadId=1&medicoId=1` | admision, medico, enfermeria | Turnos futuros disponibles; `medicoId` es opcional. |
 | `POST /api/agenda/appointments` | admision | Reserva transaccional con auditoría; conflicto de ocupación devuelve 409. |
 | `POST /api/agenda/appointments/:id/arrival` | admision | Registra llegada de una cita presencial del día en Lima; no cambia su estado. |
+| `GET /api/agenda/nursing-queue?pagina=1&limite=50` | enfermeria | Pacientes de hoy con llegada registrada y preparación pendiente, sin información clínica. |
 | `POST /api/patients` | admision | Registra únicamente datos demográficos y de contacto; rechaza antecedentes y alergias con 400; documento duplicado devuelve 409 y `patientId`. |
 | `GET /api/patients?q=texto&limit=20` | admision, medico, enfermeria | Busca por documento, nombres o apellidos; máximo 100 resultados; sin campos clínicos. |
 | `GET /api/patients/:id` | admision, medico, enfermeria | Ficha demográfica. |
@@ -319,4 +320,14 @@ El equipo sigue el estándar **[Conventional Commits](https://www.conventionalco
 
 Devuelve 200 con `{ id, estado, llegadaEn }`; 400 para ID/cuerpo inválido o cita de otro día, 404 para cita inexistente y 409 para modalidad o estado incompatible. Una repetición válida conserva la primera hora y no duplica auditoría. La actualización y `REGISTER_ARRIVAL` se guardan en una transacción con bloqueo de la cita; si falla la auditoría se revierte la llegada. La cita no pasa a `atendida`. El campo ya existe en las migraciones, sin cambios de esquema.
 
-Este incremento implementa la API de llegada; la interfaz de admisión, el listado de pendientes de enfermería (HU04) y el registro de signos vitales (HU10) siguen pendientes.
+Este incremento implementa la API de llegada; la interfaz de admisión, la interfaz de pendientes de enfermería (HU04) y el registro de signos vitales (HU10) siguen pendientes.
+
+### Lista de evaluación previa de enfermería (HU04)
+
+`GET /api/agenda/nursing-queue` requiere un token de `enfermeria`. La fecha se determina en el servidor en `America/Lima`; no admite consultar otros días. Solo incluye citas presenciales de hoy, con llegada registrada, sin preparación completada y en estado `programada`, `confirmada` o `reprogramada`. Se ordenan por llegada e ID. Las consultas quedan auditadas como `READ_NURSING_QUEUE`; si falla la auditoría no se leen ni devuelven pacientes.
+
+Parámetros opcionales: `pagina` (1–10000, por defecto 1) y `limite` (1–100, por defecto 50); los campos desconocidos o inválidos devuelven 400. Devuelve `{ fecha, zonaHoraria, pagina, limite, hayMas, pacientes }`. Cada entrada contiene `citaId`, identificación y edad del paciente, `inicio`, `llegadaEn`, médico, especialidad y `estadoPreparacion: "pendiente"`. No incluye antecedentes, alergias, indicaciones, diagnósticos, resultados, observaciones clínicas ni datos de contacto. Otros roles reciben 403.
+
+**Migración necesaria:** desde `apps/api`, ejecutar `npm.cmd run db:migrate` y `npm.cmd run prisma:generate`. La migración `20261108000100_nursing_preparation` agrega `preparacionCompletadaEn`, separado de llegada y estado de la cita. Una preparación completada requiere una llegada y no puede ser anterior a ella. Los datos existentes quedan con preparación pendiente; no se infiere una evaluación completada a partir de otros registros. HU10 incorporará el registro de signos vitales y la escritura de ese campo. Por ahora no existe una acción pública para completar la preparación.
+
+Este incremento entrega la API de HU04. La interfaz de enfermería, su selección de paciente y HU10 siguen pendientes; no se declara la historia terminada.
