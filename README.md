@@ -205,7 +205,7 @@ Con la API iniciada:
 - **Contrato JSON:** [http://localhost:3000/api/openapi.json](http://localhost:3000/api/openapi.json).
 - **Contrato YAML:** [http://localhost:3000/api/openapi.yaml](http://localhost:3000/api/openapi.yaml).
 
-Los 18 endpoints actuales están documentados por módulo, con cuerpos, parámetros, restricciones, respuestas y errores. Las rutas protegidas declaran Bearer JWT y roles permitidos (`x-roles`), derivados del mismo decorador que usa el guard. La documentación es pública y no consulta PostgreSQL para generarse; las operaciones de negocio conservan sus permisos y requieren la base de datos. No se incluyen contraseñas reales, tokens ni hashes.
+Los 19 endpoints actuales están documentados por módulo, con cuerpos, parámetros, restricciones, respuestas y errores. Las rutas protegidas declaran Bearer JWT y roles permitidos (`x-roles`), derivados del mismo decorador que usa el guard. La documentación es pública y no consulta PostgreSQL para generarse; las operaciones de negocio conservan sus permisos y requieren la base de datos. No se incluyen contraseñas reales, tokens ni hashes.
 
 Para probar desde Swagger, ejecutar `POST /api/auth/login` con una cuenta local, copiar `accessToken` y pegarlo en **Authorize** (solo el token). El token no se conserva al recargar. **Try it out** ejecuta operaciones reales contra la API: usar datos ficticios del entorno de desarrollo.
 
@@ -396,6 +396,10 @@ Consultar la [guía de acceso y evaluación previa](apps/web/ADMISSION.md) para 
 
 API implementada: catálogo CIE-10, registro final de consulta con diagnósticos e indicaciones y receta manual opcional de varios medicamentos. Solo el médico asignado puede registrar la consulta de una cita presencial de hoy con llegada y evaluación de enfermería completadas; al guardar, la cita pasa a atendida. Consulta, receta y auditoría son transaccionales. Admisión y enfermería no acceden a estas rutas. Cada medicamento conserva nombre, dosis, vía, frecuencia y duración como textos independientes, sin catálogo de medicamentos en esta versión.
 
-Requiere migración y carga del catálogo. El nuevo `npm.cmd run db:seed:cie10:demo` (desde `apps/api`) carga solo J00 y Z00.0 para demostración, sin sobrescribir descripciones; no equivale al catálogo CIE-10 completo. Ver [contrato, preparación y límites de HU08](apps/api/CONSULTATIONS.md). La pantalla médica, HCE cronológica, anulación por API y catálogo completo siguen pendientes.
+Requiere migración y carga del catálogo. El nuevo `npm.cmd run db:seed:cie10:demo` (desde `apps/api`) carga solo J00 y Z00.0 para demostración, sin sobrescribir descripciones; no equivale al catálogo CIE-10 completo. Ver [contrato, preparación y límites de HU08](apps/api/CONSULTATIONS.md). La HCE cronológica, anulación por API y catálogo completo siguen pendientes.
+
+La web admite acceso médico y ofrece una bandeja de sus pacientes preparados de hoy mediante `GET /api/agenda/medical-queue`, exclusiva del médico asignado y auditada. **Atender paciente** muestra la evaluación de enfermería y permite registrar motivo, diagnósticos CIE-10, indicaciones y receta manual opcional, con revisión y confirmación antes del guardado definitivo. La cita pasa a atendida y desaparece de pendientes. La interfaz cuenta con pruebas Playwright usando API simulada; la validación integrada con API y PostgreSQL reales sigue pendiente.
 
 Verificación del incremento: compilación y lint correctos; 228 pruebas HTTP con persistencia simulada y 31 pruebas de integración PostgreSQL aprobadas, aplicando todas las migraciones en esquemas temporales. Las migraciones del entorno habitual deben aplicarse por separado.
+
+Verificación de la interfaz HU08: build y lint de API/web correctos; suite de 247 pruebas HTTP y 37 pruebas Playwright aprobadas, más una prueba adicional de rechazo de filtro médico (20 pruebas de bandeja aprobadas). En esta ejecución, las pruebas PostgreSQL no pudieron conectarse a `localhost:5433`; la validación integrada del nuevo flujo sigue pendiente.

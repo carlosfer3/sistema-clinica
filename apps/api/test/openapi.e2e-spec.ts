@@ -45,6 +45,7 @@ describe('OpenAPI contract and Swagger UI', () => {
     ['get', '/api/agenda/appointments'],
     ['post', '/api/agenda/appointments/{id}/arrival'],
     ['get', '/api/agenda/nursing-queue'],
+      ['get', '/api/agenda/medical-queue'],
     ['post', '/api/agenda/appointments/{id}/vital-signs'],
     ['get', '/api/agenda/appointments/{id}/vital-signs'],
   ];

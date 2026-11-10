@@ -241,4 +241,28 @@ export const responseSchemas: Record<string, SchemaObject> = {
       }),
     ),
   }),
+  MedicalQueue: object({
+    fecha: { type: 'string', format: 'date' },
+    zonaHoraria: { type: 'string', enum: ['America/Lima'] },
+    pagina: integer,
+    limite: integer,
+    hayMas: { type: 'boolean' },
+    pacientes: array(
+      object({
+        citaId: integer,
+        paciente: object({
+          id: integer,
+          tipoDocumento: text,
+          numeroDocumento: text,
+          ...names,
+          edad: { type: 'integer' },
+        }),
+        inicio: instant,
+        llegadaEn: instant,
+        medico: object(identity),
+        especialidad: object({ id: integer, nombre: text }),
+        estadoPreparacion: { type: 'string', enum: ['completada'] },
+      }),
+    ),
+  }),
 };

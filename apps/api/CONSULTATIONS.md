@@ -2,7 +2,19 @@
 
 ## Alcance implementado
 
-API de registro final de consulta presencial para una cita del día actual en `America/Lima`, asignada al médico autenticado y con llegada, preparación completada y evaluación de enfermería existentes. No hay borradores, edición de recetas, consultas sin cita, interfaz médica ni HCE cronológica completa en este incremento. Los medicamentos se escriben manualmente; no hay catálogo ni autocompletado de medicamentos.
+API e interfaz médica para el registro final de consulta presencial de una cita del día actual en `America/Lima`, asignada al médico autenticado y con llegada, preparación completada y evaluación de enfermería existentes. No hay borradores, edición de recetas, consultas sin cita ni HCE cronológica completa en este incremento. Los medicamentos se escriben manualmente; no hay catálogo ni autocompletado de medicamentos.
+
+## Interfaz médica de HU08
+
+Iniciar sesión en la web con la cuenta del médico asignado (`demo.medico`). La bandeja muestra únicamente sus citas presenciales de hoy con llegada y preparación completadas, evaluación existente y sin consulta registrada. Incluye identificación, edad, especialidad y horario de Lima; permite actualizar y paginar de 20 en 20.
+
+**Atender paciente** abre la evaluación de enfermería con mediciones, observaciones y autoría. El formulario requiere motivo, al menos un diagnóstico seleccionado del catálogo CIE-10 e indicaciones generales. El primer diagnóstico es principal; admite hasta 20 sin repetir. La receta es opcional y admite hasta 30 medicamentos con nombre, dosis, vía, frecuencia, duración e indicaciones adicionales opcionales. **Revisar consulta** presenta los datos antes de confirmar el registro definitivo. Al guardar, la cita pasa a atendida y se actualiza la bandeja.
+
+Durante el envío se bloquean la edición, el doble envío y el cierre de sesión. Un 400 conserva los datos para corregirlos; un conflicto o resultado incierto cierra el formulario y requiere actualizar la lista antes de continuar. No hay reintentos automáticos. Una sesión vencida elimina el acceso y los datos de la pantalla. Volver a la bandeja o cerrar sesión descarta el formulario sin guardar.
+
+`GET /api/agenda/medical-queue` requiere rol médico y utiliza su identidad del token, sin aceptar otro médico ni fecha. Admite `pagina` (1–10000) y `limite` (1–100), con valores predeterminados 1 y 50. Devuelve el formato de lista de enfermería, con `estadoPreparacion: "completada"`. Audita `READ_MEDICAL_QUEUE` antes de leer; si falla la auditoría no entrega pacientes. No requiere migración adicional.
+
+Pruebas HTTP con persistencia simulada verifican permisos, filtro por médico y preparación, fecha de Lima, paginación y auditoría. Playwright verifica consulta sin receta, receta manual, revisión, validación, errores, sesión, bloqueo de doble envío y ancho móvil con API simulada. La validación integrada de la interfaz con la API y PostgreSQL reales sigue pendiente.
 
 ## Preparación local
 

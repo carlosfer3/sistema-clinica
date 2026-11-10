@@ -168,6 +168,21 @@ export class AgendaController {
     return this.agenda.nursingQueue(query, req.user!.id, ip);
   }
 
+  @ApiContract('Listar pacientes preparados del médico', 'MedicalQueue', {
+    description:
+      'Solo médico asignado. Citas presenciales de hoy en Lima, con llegada y evaluación completada, sin consulta. Orden por llegada e ID; lectura auditada.',
+    errors: { 400: 'Paginación inválida o parámetros desconocidos.' },
+  })
+  @Get('medical-queue')
+  @Roles('medico')
+  medicalQueue(
+    @Query() query: NursingQueueDto,
+    @Req() req: AuthRequest,
+    @Ip() ip: string,
+  ) {
+    return this.agenda.medicalQueue(query, req.user!.id, ip);
+  }
+
   @ApiContract('Consultar disponibilidad', 'Availability', {
     description:
       'Admisión, médico y enfermería. Turnos completos futuros en America/Lima, excluyendo citas no canceladas. No bloquea ni reserva. Sin coincidencias o para fecha pasada devuelve turnos vacíos. Sin feriados ni excepciones.',
