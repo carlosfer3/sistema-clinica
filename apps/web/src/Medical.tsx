@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import { api, ApiError } from './api'
 import type { Session } from './api'
+import { PatientHistory } from './PatientHistory'
 
-type Appointment = { citaId: number; inicio: string; paciente: { nombres: string; apellidos: string; tipoDocumento: string; numeroDocumento: string; edad: number }; especialidad: { nombre: string } }
+type Appointment = { citaId: number; inicio: string; paciente: { id: number; nombres: string; apellidos: string; tipoDocumento: string; numeroDocumento: string; edad: number }; especialidad: { nombre: string } }
 type Queue = { fecha: string; pacientes: Appointment[]; hayMas: boolean }
 type Diagnosis = { codigo: string; descripcion: string }
 type VitalSigns = { temperaturaC: string; presionSistolica: number; presionDiastolica: number; frecuenciaCardiaca: number; frecuenciaRespiratoria: number; saturacionOxigeno: string; pesoKg: string | null; tallaCm: string | null; observaciones: string | null; registradoEn: string; autor: { nombres: string; apellidos: string } }
@@ -83,7 +84,9 @@ function ConsultationForm({ appointment, session, saving, onSave, onCancel, onEx
     const controller = new AbortController()
     const timer = setTimeout(() => {
       setSearching(true); setSearchError(''); setCatalog([])
-      api<Diagnosis[]>(`/consultations/diagnoses?q=${encodeURIComponent(query.trim())}`, { token: session.token, signal: controller.signal }).then(data => { if (!controller.signal.aborted) setCatalog(data) }).catch(cause => {
+      const search = query.trim()
+      const path = search ? `/consultations/diagnoses?q=${encodeURIComponent(search)}` : '/consultations/diagnoses'
+      api<Diagnosis[]>(path, { token: session.token, signal: controller.signal }).then(data => { if (!controller.signal.aborted) setCatalog(data) }).catch(cause => {
         if (controller.signal.aborted) return
         if (cause instanceof ApiError && cause.status === 401) onExpired()
         else setSearchError('No se pudo consultar CIE-10. Modifica la búsqueda para reintentar.')
@@ -93,6 +96,7 @@ function ConsultationForm({ appointment, session, saving, onSave, onCancel, onEx
   }, [query, session.token, onExpired])
   function submit(event: SubmitEvent<HTMLFormElement>) { event.preventDefault(); if (!saving && vitals && diagnoses.length) setConfirming(true) }
   return <section className="card"><h2>Registrar consulta</h2><div className="patient-selected"><strong>{appointment.paciente.nombres} {appointment.paciente.apellidos}</strong><p>{appointment.paciente.tipoDocumento}: {appointment.paciente.numeroDocumento} · {appointment.paciente.edad} años · Cita #{appointment.citaId}</p></div>
+    <PatientHistory key={appointment.paciente.id} patientId={appointment.paciente.id} session={session} onExpired={onExpired} />
     <h3>Evaluación de enfermería</h3>
     {loadError ? <p role="alert" className="notice error">{loadError}</p> : !vitals ? <p role="status">Cargando evaluación…</p> : <><dl className="vital-grid">{[['Temperatura', `${vitals.temperaturaC} °C`], ['Presión arterial', `${vitals.presionSistolica}/${vitals.presionDiastolica} mmHg`], ['Frecuencia cardíaca', `${vitals.frecuenciaCardiaca} latidos/min`], ['Frecuencia respiratoria', `${vitals.frecuenciaRespiratoria} respiraciones/min`], ['Saturación', `${vitals.saturacionOxigeno} %`], ['Peso', vitals.pesoKg ? `${vitals.pesoKg} kg` : 'Sin registro'], ['Talla', vitals.tallaCm ? `${vitals.tallaCm} cm` : 'Sin registro']].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><p>Observaciones: {vitals.observaciones || 'Sin observaciones'}</p><p className="small">Registrado por {vitals.autor.nombres} {vitals.autor.apellidos}{vitals.registradoEn && ` ? ${new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', dateStyle: 'short', timeStyle: 'short' }).format(new Date(vitals.registradoEn))}`}</p></>}
     <form onSubmit={submit} aria-busy={saving}><fieldset disabled={saving || !vitals || confirming}>

@@ -87,6 +87,40 @@ export const responseSchemas: Record<string, SchemaObject> = {
     },
   }),
   Patient: object(patient),
+  PatientHistory: object({
+    paciente: ref('ClinicalProfile'),
+    pagina: integer,
+    limite: integer,
+    hayMas: { type: 'boolean' },
+    consultas: array(
+      object({
+        id: integer,
+        fechaHora: instant,
+        motivo: text,
+        indicaciones: nullable(text),
+        estado: { type: 'string', enum: ['activo', 'anulado'] },
+        motivoAnulacion: nullable(text),
+        anuladoEn: nullable(instant),
+        medico: object({
+          usuario: object(names),
+          especialidad: object({ nombre: text }),
+        }),
+        diagnosticos: array(
+          object({ codigo: text, descripcion: text, tipo: text }),
+        ),
+        recetaItems: array(
+          object({
+            medicamento: text,
+            dosis: text,
+            via: text,
+            frecuencia: text,
+            duracion: text,
+            indicaciones: nullable(text),
+          }),
+        ),
+      }),
+    ),
+  }),
   ClinicalProfile: object({
     ...patient,
     antecedentes: array(

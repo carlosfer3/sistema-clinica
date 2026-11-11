@@ -224,6 +224,87 @@ describe('Consultations and prescriptions (isolated PostgreSQL schema)', () => {
       }),
     ).toBe(1);
   });
+  it('reads audited chronological HCE with real relations and denies unassigned doctors', async () => {
+    const cita = await appointment();
+    const response = await post(cita.id).expect(201);
+    await db.antecedente.create({
+      data: {
+        pacienteId: patientId,
+        tipo: 'Personal',
+        descripcion: 'Antecedente ficticio',
+      },
+    });
+    await db.alergia.create({
+      data: {
+        pacienteId: patientId,
+        sustancia: 'Sustancia ficticia',
+        reaccion: 'Reacción ficticia',
+      },
+    });
+    const history = (bearer = token, query = '') =>
+      request(app.getHttpServer())
+        .get(`/api/patients/${patientId}/history${query}`)
+        .auth(bearer, { type: 'bearer' });
+    const result = await history(token, '?pagina=1&limite=1').expect(200);
+    expect(result.body.paciente.antecedentes[0].descripcion).toBe(
+      'Antecedente ficticio',
+    );
+    expect(result.body.paciente.alergias[0].sustancia).toBe(
+      'Sustancia ficticia',
+    );
+    expect(result.body.consultas[0]).toMatchObject({
+      id: response.body.id,
+      diagnosticos: [{ codigo: 'J00' }],
+      recetaItems: [medication],
+      medico: { usuario: { nombres: 'Medico' } },
+    });
+    expect(result.body.hayMas).toBe(true);
+    const next = await history(token, '?pagina=2&limite=1').expect(200);
+    expect(next.body.consultas[0].id).not.toBe(response.body.id);
+    await history(otherToken).expect(404);
+    await history(nurseToken).expect(403);
+    expect(
+      await db.bitacoraAuditoria.count({
+        where: {
+          accion: 'READ_HCE',
+          usuarioId: doctorUserId,
+          recurso: `patients/${patientId}/history`,
+        },
+      }),
+    ).toBe(2);
+    const otherUser = await db.usuario.findUniqueOrThrow({
+      where: { username: 'other-hu08' },
+    });
+    const otherDoctor = await db.medico.create({
+      data: {
+        usuarioId: otherUser.id,
+        cmp: 'TESTHCE',
+        especialidadId: (
+          await db.medico.findUniqueOrThrow({ where: { id: doctorId } })
+        ).especialidadId,
+      },
+    });
+    const assigned = await db.cita.create({
+      data: {
+        pacienteId: patientId,
+        medicoId: otherDoctor.id,
+        creadoPor: doctorUserId,
+        fechaHoraInicio: cita.fechaHoraInicio,
+        fechaHoraFin: cita.fechaHoraFin,
+      },
+    });
+    const crossDoctor = await history(otherToken).expect(200);
+    expect(
+      crossDoctor.body.consultas.some(
+        (entry: { id: number }) => entry.id === response.body.id,
+      ),
+    ).toBe(true);
+    await db.cita.update({
+      where: { id: assigned.id },
+      data: { estado: 'cancelada' },
+    });
+    await history(otherToken).expect(404);
+  });
   it('accepts exactly one of two simultaneous consultations for a prepared appointment', async () => {
     const cita = await appointment();
     const results = await Promise.all([post(cita.id), post(cita.id)]);

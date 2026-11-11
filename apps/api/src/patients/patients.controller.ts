@@ -16,11 +16,32 @@ import { Roles } from '../auth/auth.decorators.js';
 import type { AuthRequest } from '../auth/auth.types.js';
 import { CreatePatientDto, SearchPatientsDto } from './patient.dto.js';
 import { PatientsService } from './patients.service.js';
+import { NursingQueueDto } from '../agenda/nursing-queue.dto.js';
 
 @ApiTags('Pacientes')
 @Controller('patients')
 export class PatientsController {
   constructor(private readonly patients: PatientsService) {}
+
+  @ApiContract('Consultar HCE cronológica', 'PatientHistory', {
+    description:
+      'Solo médico con cita no cancelada asignada al paciente. Perfil clínico y consultas de todos sus médicos, de más reciente a más antigua. Incluye episodios anulados identificados, diagnósticos y recetas. Lectura auditada y paginada.',
+    errors: {
+      400: 'ID o paginación inválidos.',
+      404: 'Paciente inexistente o no asignado.',
+    },
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'ID del paciente.' })
+  @Get(':id/history')
+  @Roles('medico')
+  history(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: NursingQueueDto,
+    @Req() req: AuthRequest,
+    @Ip() ip: string,
+  ) {
+    return this.patients.history(id, query, req.user!.id, ip);
+  }
 
   @ApiContract('Registrar paciente', 'Patient', {
     status: 201,

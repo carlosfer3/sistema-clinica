@@ -314,6 +314,10 @@ Interfaz de admisión implementada: consultar disponibilidad, elegir un paciente
 
 ---
 
+### HCE en la pantalla médica
+
+**Atender paciente** incluye la historia clínica: antecedentes, alergias y consultas de todas las especialidades, con diagnósticos, indicaciones y recetas. Las consultas se muestran de más reciente a más antigua, con paginación y señalización de episodios anulados. La lectura se audita y requiere rol médico y una cita no cancelada asignada al paciente. No requiere migraciones adicionales. Ver [contrato, prueba manual y límites](apps/api/PATIENT-HISTORY.md).
+
 ## 🛠 Convención de Trabajo y Commits
 
 El equipo sigue el estándar **[Conventional Commits](https://www.conventionalcommits.org/)** en idioma inglés:

@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreatePatientDto, SearchPatientsDto } from './patient.dto.js';
+import { NursingQueueDto } from '../agenda/nursing-queue.dto.js';
 
 const demographics = {
   id: true,
@@ -28,6 +29,76 @@ export class PatientsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
   ) {}
+
+  async history(
+    id: number,
+    query: NursingQueueDto,
+    actorId: number,
+    ip?: string,
+  ) {
+    await this.audit.record(actorId, 'READ_HCE', `patients/${id}/history`, ip);
+    const patient = await this.prisma.paciente.findFirst({
+      where: {
+        id,
+        citas: {
+          some: {
+            medico: { usuarioId: actorId },
+            estado: { not: 'cancelada' },
+          },
+        },
+      },
+      select: {
+        ...demographics,
+        antecedentes: { orderBy: [{ registradoEn: 'desc' }, { id: 'desc' }] },
+        alergias: { orderBy: { id: 'asc' } },
+        consultas: {
+          orderBy: [{ fechaHora: 'desc' }, { id: 'desc' }],
+          skip: (query.pagina - 1) * query.limite,
+          take: query.limite + 1,
+          select: {
+            id: true,
+            fechaHora: true,
+            motivo: true,
+            indicaciones: true,
+            estado: true,
+            motivoAnulacion: true,
+            anuladoEn: true,
+            medico: {
+              select: {
+                usuario: { select: { nombres: true, apellidos: true } },
+                especialidad: { select: { nombre: true } },
+              },
+            },
+            diagnosticos: {
+              orderBy: { orden: 'asc' },
+              select: { codigo: true, descripcion: true, tipo: true },
+            },
+            recetaItems: {
+              orderBy: { orden: 'asc' },
+              select: {
+                medicamento: true,
+                dosis: true,
+                via: true,
+                frecuencia: true,
+                duracion: true,
+                indicaciones: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!patient)
+      throw new NotFoundException('Patient not found or not assigned');
+    const { consultas, ...profile } = patient;
+    return {
+      paciente: profile,
+      consultas: consultas.slice(0, query.limite),
+      pagina: query.pagina,
+      limite: query.limite,
+      hayMas: consultas.length > query.limite,
+    };
+  }
 
   async create(dto: CreatePatientDto, actorId: number, ip?: string) {
     if (dto.tipoDocumento === 'DNI' && !/^\d{8}$/.test(dto.numeroDocumento)) {

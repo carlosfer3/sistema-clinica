@@ -1,8 +1,12 @@
 # HU08: consultas y receta manual
 
+## HCE durante la consulta
+
+**Atender paciente** incluye ahora antecedentes, alergias y consultas anteriores con diagnósticos y recetas, paginadas por fecha descendente. Ver [acceso, contrato y pruebas de HCE](PATIENT-HISTORY.md). No requiere migraciones adicionales.
+
 ## Alcance implementado
 
-API e interfaz médica para el registro final de consulta presencial de una cita del día actual en `America/Lima`, asignada al médico autenticado y con llegada, preparación completada y evaluación de enfermería existentes. No hay borradores, edición de recetas, consultas sin cita ni HCE cronológica completa en este incremento. Los medicamentos se escriben manualmente; no hay catálogo ni autocompletado de medicamentos.
+API e interfaz médica para el registro final de consulta presencial de una cita del día actual en `America/Lima`, asignada al médico autenticado y con llegada, preparación completada y evaluación de enfermería existentes. No hay borradores persistidos, edición de recetas ni consultas sin cita. Los medicamentos se escriben manualmente; no hay catálogo ni autocompletado de medicamentos.
 
 ## Interfaz médica de HU08
 
