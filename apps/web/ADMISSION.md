@@ -26,7 +26,11 @@ Verificación: `npm.cmd run build`, `npm.cmd run lint` y `npm.cmd run test:e2e`.
 
 ## Citas del día
 
-La navegación permite alternar entre **Reservar cita** y **Citas del día**. El listado usa `GET /api/agenda/appointments` con la fecha de Lima determinada por el servidor, páginas de 20 registros y filtro por estado. No muestra información clínica. Se puede actualizar para comprobar nuevas reservas y llegadas.
+La navegación permite alternar entre **Reservar cita** y **Citas del día**. El selector **Fecha de las citas** permite consultar días pasados, hoy y fechas futuras; el botón **Hoy** vuelve a la fecha actual de Lima. El listado usa `GET /api/agenda/appointments?fecha=YYYY-MM-DD`, páginas de 20 registros y filtro por estado. Cambiar la fecha conserva el estado, vuelve a la primera página, descarta la confirmación de llegada y elimina resultados anteriores mientras carga. Actualizar y paginar conservan la fecha. Si se vacía el selector, se pide una fecha y no se envía una consulta vacía. No muestra información clínica.
+
+La API interpreta el día entre medianoche local inclusive y la siguiente medianoche exclusiva en `America/Lima` (UTC−05:00). `fecha` es opcional por compatibilidad: si se omite, se usa hoy según el servidor. Se rechazan formatos distintos de `YYYY-MM-DD` y fechas inexistentes. Permisos, auditoría y filtros por médico/estado siguen vigentes. No requiere migración ni seed.
+
+**Registrar llegada** solo se ofrece al consultar hoy. En otros días se muestran las citas sin esa acción, y la API rechaza igualmente cualquier intento de registrar llegada fuera de hoy. La bandeja de enfermería y la médica continúan limitadas a hoy.
 
 **Registrar llegada** muestra paciente, documento, médico y hora para confirmar identidad y presencia física antes de enviar `POST /api/agenda/appointments/:id/arrival` con `{}`. La API mantiene la validación final. Una respuesta exitosa actualiza la lista sin marcar la cita como atendida; los reintentos conservan la primera llegada. Citas virtuales, canceladas, atendidas, con inasistencia o con llegada registrada no muestran el botón. Se bloquean navegación, filtros y cierre de sesión durante el envío. Un 401 cierra la sesión; los conflictos actualizan la lista y los fallos inciertos piden comprobar el resultado sin reintentar automáticamente.
 

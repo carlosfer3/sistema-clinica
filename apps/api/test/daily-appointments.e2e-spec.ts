@@ -89,7 +89,12 @@ describe('Admission daily appointments (HTTP, mocked database)', () => {
     '?medicoId=abc',
     '?medicoId=0',
     '?estado=invalido',
-    '?fecha=2026-11-07',
+    '?fecha=2026-02-30',
+    '?fecha=2026-13-01',
+    '?fecha=2026-1-01',
+    '?fecha=2026-11-07T00:00:00Z',
+    '?fecha=',
+    '?extra=1',
   ])('rejects query %s', async (query) => {
     await get(query).expect(400);
     expect(findMany).not.toHaveBeenCalled();
@@ -123,6 +128,27 @@ describe('Admission daily appointments (HTTP, mocked database)', () => {
       findMany.mock.invocationCallOrder[0],
     );
   });
+  it.each(['2026-11-07', '2027-01-01', '2028-02-29'])(
+    'filters selected local day %s with Lima UTC boundaries',
+    async (fecha) => {
+      const response = await get(
+        `?fecha=${fecha}&estado=confirmada&pagina=2&limite=10`,
+      ).expect(200);
+      expect(response.body.fecha).toBe(fecha);
+      const start = new Date(`${fecha}T00:00:00-05:00`);
+      expect(findMany.mock.calls[0][0]).toMatchObject({
+        where: {
+          fechaHoraInicio: {
+            gte: start,
+            lt: new Date(start.getTime() + 86400000),
+          },
+          estado: 'confirmada',
+        },
+        skip: 10,
+        take: 11,
+      });
+    },
+  );
   it('filters and paginates without losing completed or cancelled states', async () => {
     findMany.mockResolvedValue([row, row]);
     const response = await get(

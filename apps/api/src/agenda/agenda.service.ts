@@ -321,7 +321,9 @@ export class AgendaService {
     actorId: number,
     ip?: string,
   ) {
-    const fecha = new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
+    const fecha =
+      query.fecha ??
+      new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
     const start = new Date(`${fecha}T00:00:00-05:00`);
     await this.audit.record(
       actorId,

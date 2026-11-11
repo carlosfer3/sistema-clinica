@@ -1,10 +1,29 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { EstadoCita } from '@prisma/client';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  Matches,
+  Max,
+  Min,
+} from 'class-validator';
 import { NursingQueueDto } from './nursing-queue.dto.js';
 
 export class DailyAppointmentsDto extends NursingQueueDto {
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @IsDateString({ strict: true })
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date',
+    description:
+      'Día local en America/Lima. Si se omite, se usa hoy. Admite fechas pasadas y futuras.',
+  })
+  fecha?: string;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

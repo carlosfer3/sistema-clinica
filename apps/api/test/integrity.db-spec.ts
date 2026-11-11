@@ -400,7 +400,9 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
         .auth(admissionToken, { type: 'bearer' })
         .send(body);
     const results = await Promise.all([reserve(), reserve()]);
-    expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([201, 409]);
+    expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([
+      201, 409,
+    ]);
     const created = results.find((r) => r.status === 201)!.body;
     expect(created).toMatchObject({
       pacienteId: patientId,
@@ -749,7 +751,9 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
         .auth(nurseToken, { type: 'bearer' })
         .send(measurements),
     ]);
-    expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([201, 409]);
+    expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([
+      201, 409,
+    ]);
     const evaluation = await db.evaluacionPrevia.findUniqueOrThrow({
       where: { citaId: appointment.id },
       include: { autor: true },
@@ -859,6 +863,29 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
     expect(ids).toContain(today.id);
     expect(ids).not.toContain(yesterday.id);
     expect(ids).not.toContain(tomorrow.id);
+    for (const selected of [yesterday, tomorrow]) {
+      const fecha = new Date(selected.fechaHoraInicio.getTime() - 5 * 3600000)
+        .toISOString()
+        .slice(0, 10);
+      const filtered = await request(app.getHttpServer())
+        .get(
+          `/api/agenda/appointments?fecha=${fecha}&medicoId=${doctorId}&estado=confirmada&limite=100`,
+        )
+        .auth(admissionToken, { type: 'bearer' })
+        .expect(200);
+      expect(filtered.body.fecha).toBe(fecha);
+      expect(
+        filtered.body.citas.map((item: { id: number }) => item.id),
+      ).toContain(selected.id);
+      expect(
+        filtered.body.citas.map((item: { id: number }) => item.id),
+      ).not.toContain(today.id);
+      await request(app.getHttpServer())
+        .post(`/api/agenda/appointments/${selected.id}/arrival`)
+        .auth(admissionToken, { type: 'bearer' })
+        .send({})
+        .expect(400);
+    }
     const entry = response.body.citas.find(
       (item: { id: number }) => item.id === today.id,
     );

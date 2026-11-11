@@ -310,7 +310,7 @@ Respuestas: 201 con ID, paciente/médico, inicio/fin UTC, estado, canal y modali
 
 Las pruebas de `apps/api/test/integrity.db-spec.ts` verifican dos reservas HTTP simultáneas (201/409), cancelación y nueva reserva, actualización de disponibilidad, validaciones y reversión por fallo de auditoría contra un esquema PostgreSQL temporal. Ejecutar `npm.cmd run test:db` con la base de desarrollo configurada.
 
-Interfaz de admisión implementada: registrar o elegir un paciente, consultar disponibilidad y confirmar la reserva desde la web, listar citas de hoy y registrar llegada. Quedan pendientes la consulta por otras fechas, reprogramación/cancelación, feriados y excepciones. La aceptación de HU01 continúa sujeta a la DoD y revisión por PR.
+Interfaz de admisión implementada: registrar o elegir un paciente, consultar disponibilidad y confirmar la reserva desde la web, listar citas por la fecha seleccionada y registrar llegada de citas de hoy. Quedan pendientes reprogramación/cancelación, feriados y excepciones. La aceptación de HU01 continúa sujeta a la DoD y revisión por PR.
 
 ---
 
@@ -382,7 +382,7 @@ Aplicar `npm.cmd run db:migrate` y `npm.cmd run prisma:generate` desde `apps/api
 
 Después de iniciar sesión, elegir **Citas del día**. La pantalla muestra las citas de la fecha actual de Lima, permite filtrar por estado y recorrer páginas de 20 registros. Incluye paciente/documento, médico, especialidad, horario, modalidad, estado y llegada. **Registrar llegada** abre una confirmación de identidad y presencia; al confirmar, se actualiza la lista. Citas canceladas, atendidas, con inasistencia, virtuales o con llegada registrada no ofrecen esta acción. Un fallo de conexión no reintenta la operación automáticamente; actualizar la lista permite comprobar el resultado. Durante el envío se bloquean navegación y cierre de sesión. La reserva sigue disponible en **Reservar cita**.
 
-API: `GET /api/agenda/appointments`, exclusiva de `admision`, auditada como `READ_DAILY_APPOINTMENTS`. Usa el día actual del servidor en `America/Lima`; admite `pagina` (1–10000, predeterminado 1), `limite` (1–100, predeterminado 50), `medicoId` y `estado`. Los parámetros desconocidos se rechazan con 400. Devuelve `{ fecha, zonaHoraria, pagina, limite, hayMas, citas }`, ordenadas por inicio e ID, con todos los estados y modalidades. No expone motivo de consulta, historial, signos vitales ni datos de contacto. Contrato completo en Swagger. No requiere migraciones adicionales.
+API: `GET /api/agenda/appointments`, exclusiva de `admision`, auditada como `READ_DAILY_APPOINTMENTS`. Admite `fecha` opcional (`YYYY-MM-DD`, día local de `America/Lima`, hoy si se omite), `pagina` (1–10000, predeterminado 1), `limite` (1–100, predeterminado 50), `medicoId` y `estado`. Fechas inexistentes, formatos inválidos y parámetros desconocidos se rechazan con 400. Devuelve `{ fecha, zonaHoraria, pagina, limite, hayMas, citas }`, ordenadas por inicio e ID, con todos los estados y modalidades. La web permite elegir fecha y volver a hoy; la llegada solo se registra para hoy. No expone motivo de consulta, historial, signos vitales ni datos de contacto. Contrato completo en Swagger. No requiere migraciones adicionales.
 
 Las pruebas HTTP verifican roles, validaciones, selección de campos, fecha de Lima, filtros, paginación y fallo de auditoría. Playwright verifica confirmación de llegada, actualización, restricciones visuales, filtros, paginación, sesión, errores de conexión y ancho móvil con API simulada; la ejecución integrada con PostgreSQL sigue pendiente.
 

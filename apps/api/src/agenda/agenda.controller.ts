@@ -39,9 +39,9 @@ export class AgendaController {
 
   @ApiContract('Listar citas del día para admisión', 'DailyAppointments', {
     description:
-      'Solo admisión. Día actual en America/Lima, todas las modalidades y estados. Filtros opcionales por médico y estado; paginación y orden por hora e ID. Solo identificación y datos operativos, sin información clínica.',
+      'Solo admisión. Día seleccionado en America/Lima (hoy si se omite fecha), todas las modalidades y estados. Filtros opcionales por médico y estado; paginación y orden por hora e ID. Solo identificación y datos operativos, sin información clínica. Registrar llegada sigue limitado a hoy.',
     errors: {
-      400: 'Filtros inválidos o desconocidos; no admite fecha manual.',
+      400: 'Fecha inexistente o distinta de YYYY-MM-DD, filtros inválidos o desconocidos.',
     },
   })
   @Get('appointments')
