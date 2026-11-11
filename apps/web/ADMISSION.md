@@ -8,7 +8,19 @@ El flujo de agenda permite buscar pacientes existentes, consultar especialidades
 
 Antes de confirmar se muestra el paciente, médico, consultorio y horario. Una respuesta 409 elimina la selección y actualiza los turnos; una respuesta 401 descarta la sesión y los datos de la pantalla. No se reintentan automáticamente las reservas: ante un fallo de conexión o del servidor, el resultado puede ser incierto y se pide verificarlo antes de volver a reservar. Cambiar los filtros invalida los turnos anteriores. El botón de confirmación y la salida se deshabilitan mientras se envía una reserva.
 
-El registro de pacientes continúa disponible por API. La interfaz todavía no permite crear pacientes, reprogramar, cancelar ni administrar horarios. Si no hay médicos con horarios, cargar los datos ficticios siguiendo el README de la raíz; no se crean automáticamente desde la web.
+El registro de pacientes está disponible en **Reservar cita → Registrar nuevo paciente**. La interfaz todavía no permite reprogramar, cancelar ni administrar horarios. Si no hay médicos con horarios, cargar los datos ficticios siguiendo el README de la raíz; no se crean automáticamente desde la web.
+
+## Registro de pacientes desde admisión
+
+El formulario solicita tipo y número de documento, nombres, apellidos, fecha de nacimiento, sexo, teléfono y correo obligatorios; dirección opcional. DNI requiere ocho dígitos y conserva ceros iniciales; CE y pasaporte aceptan hasta quince letras o números. No admite nacimiento futuro. Solo se envían datos demográficos y de contacto a `POST /patients`, sin antecedentes, alergias ni cuenta de portal. La API conserva sus validaciones, permisos de admisión y auditoría transaccional existentes.
+
+Al guardar, el paciente queda seleccionado y se puede consultar disponibilidad y confirmar su cita sin pasar por Swagger. Si se buscó previamente un DNI completo, se precarga al abrir el formulario. Abrir el registro descarta la selección previa de paciente y turno para evitar una reserva con datos anteriores. Cancelar descarta el borrador sin escribir en la API.
+
+Un 409 indica documento existente: el formulario conserva los datos ingresados y permite **Consultar paciente existente**, usando el ID entregado por el servidor. Se comprueba el documento y se muestra su identidad antes de ofrecer **Seleccionar paciente existente**. No se sobrescribe información ni se crea un segundo paciente. El alta también admite CE/pasaporte y su selección inmediata; la búsqueda general continúa limitada a DNI exacto.
+
+Durante el envío se bloquean edición, cancelación, reserva, navegación y cierre de sesión; un bloqueo adicional impide solicitudes simultáneas. Un 400 conserva los datos para corregirlos, 403 informa falta de permisos y 401 cierra sesión y descarta el formulario. Los fallos de conexión/servidor muestran resultado incierto y piden verificar el registro antes de un nuevo envío; nunca se reintenta automáticamente. El borrador permanece solo en memoria.
+
+Pruebas: `npm.cmd run test:e2e -- patient-registration.spec.ts`. Incluyen creación y reserva, duplicado y revisión de identidad, ceros iniciales, tipos de documento, validación, cancelación, permisos visuales, sesión, red y pantalla móvil. Usan API simulada; las pruebas PostgreSQL del backend (`npm.cmd run test:db -- integrity.db-spec.ts`) verifican persistencia, duplicados, permisos y auditoría por separado.
 
 Verificación: `npm.cmd run build`, `npm.cmd run lint` y `npm.cmd run test:e2e`. Las pruebas de navegador usan Playwright con Microsoft Edge instalado. Para otro navegador Chromium compatible, definir `PLAYWRIGHT_CHANNEL` (por ejemplo, `chrome`). Las pruebas interceptan la API y usan datos ficticios; no equivalen a una prueba integrada con PostgreSQL.
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { SubmitEvent } from "react";
 import { api, ApiError } from "./api";
 import type { Session } from "./api";
+import { PatientRegistration } from "./PatientRegistration";
 
 type Patient = {
   id: number;
@@ -74,6 +75,8 @@ export function Agenda({
   const [motive, setMotive] = useState("");
   const [channel, setChannel] = useState("presencial");
   const [booking, setBooking] = useState(false);
+  const [showRegistration, setShowRegistration] = useState(false);
+  const [registering, setRegistering] = useState(false);
   const bookingLock = useRef(false);
   const [notice, setNotice] = useState<{
     text: string;
@@ -271,8 +274,27 @@ export function Agenda({
           <h2 id="patient-title">
             <span className="step">1</span> Paciente
           </h2>
-          <p className="small muted">Ingresa el DNI completo de 8 dígitos.</p>
-          <fieldset disabled={booking}>
+          {!showRegistration && <button type="button" className="secondary" disabled={booking} onClick={() => {
+            searchVersion.current++;
+            setSearching(false); setPatientError(""); setPatients([]); setSearched(false);
+            setPatient(null); resetSlots(); setShowRegistration(true);
+          }}>Registrar nuevo paciente</button>}
+          {showRegistration && <PatientRegistration
+            session={session}
+            initialDni={/^[0-9]{8}$/.test(query.trim()) ? query.trim() : ""}
+            onExpired={onExpired}
+            onBusyChange={value => { setRegistering(value); onBookingChange(value); }}
+            onCancel={() => setShowRegistration(false)}
+            onSelected={(selected, created) => {
+              searchVersion.current++;
+              setPatients([]); setSearched(false); setPatient(selected);
+              setQuery(selected.tipoDocumento === "DNI" ? selected.numeroDocumento : "");
+              setShowRegistration(false);
+              setNotice({ success: true, text: created ? `Paciente ${selected.nombres} ${selected.apellidos} registrado y seleccionado. Ya puedes reservar su cita.` : `Paciente ${selected.nombres} ${selected.apellidos} seleccionado. Se conservaron sus datos existentes.` });
+            }}
+          />}
+          <fieldset disabled={booking || registering} hidden={showRegistration}>
+            <p className="small muted">Ingresa el DNI completo de 8 dígitos.</p>
             <form onSubmit={search} aria-busy={searching}>
               <label htmlFor="patient-search">Buscar paciente</label>
               <div className="inline-form">
@@ -314,7 +336,7 @@ export function Agenda({
             {searched && patients.length === 0 && (
               <p role="status" className="empty small">
                 No se encontró un paciente con ese DNI. Verifica los 8 dígitos.
-                El registro de pacientes se realiza por API en esta versión.
+                Puedes usar “Registrar nuevo paciente” para crear su ficha.
               </p>
             )}
             {patients.length > 0 && (
@@ -411,6 +433,7 @@ export function Agenda({
             <fieldset
               disabled={
                 booking ||
+                registering ||
                 loading ||
                 catalogLoading ||
                 !!catalogError ||
@@ -508,7 +531,7 @@ export function Agenda({
                 <span>· Sujeto a confirmación al reservar</span>
               </p>
               <fieldset
-                disabled={booking}
+                disabled={booking || registering}
                 className="slots"
                 aria-label="Turnos disponibles"
               >
@@ -555,7 +578,7 @@ export function Agenda({
           </p>
         ) : (
           <form onSubmit={reserve} aria-busy={booking}>
-            <fieldset disabled={booking}>
+            <fieldset disabled={booking || registering}>
               <div className="booking-summary">
                 <div>
                   <span>Paciente</span>

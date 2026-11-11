@@ -2,9 +2,11 @@ export type Session = { token: string; user: { id: number; rol: string } }
 
 export class ApiError extends Error {
   readonly status: number
-  constructor(status: number) {
+  readonly body: unknown
+  constructor(status: number, body: unknown = null) {
     super(`HTTP ${status}`)
     this.status = status
+    this.body = body
   }
 }
 
@@ -21,6 +23,6 @@ export async function api<T>(path: string, options: { token?: string; body?: unk
     signal: options.signal,
     cache: 'no-store',
   })
-  if (!response.ok) throw new ApiError(response.status)
+  if (!response.ok) throw new ApiError(response.status, await response.json().catch(() => null))
   return response.json() as Promise<T>
 }

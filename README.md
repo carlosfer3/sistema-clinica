@@ -61,7 +61,7 @@ El incremento actual permite a admisión iniciar sesión, buscar un paciente exi
 | Área | Implementado | Pendiente principal |
 | :--- | :--- | :--- |
 | Seguridad y auditoría (HU17) | Login JWT, control por roles, verificación de cuentas activas y auditoría. | Extender la cobertura a los módulos restantes y validar la DoD. |
-| Pacientes y base de HCE (M1; HU06/HU07 parciales) | Registro, búsqueda, ficha demográfica, antecedentes y alergias por API. | Registro desde la web, interfaz clínica, CIE-10, recetas, signos vitales e HCE cronológica. |
+| Pacientes y base de HCE (M1; HU06/HU07 parciales) | Registro y búsqueda por web/API; evaluación de enfermería, consulta médica con CIE-10/receta e HCE cronológica en la web. | Edición clínica de antecedentes/alergias y validación integral de criterios de aceptación y DoD. |
 | Agenda y citas (M2; HU01 parcial) | Horarios, catálogo, disponibilidad y reserva transaccional por API; reserva desde la web de admisión. | Reprogramación, cancelación, administración de horarios, feriados y excepciones. |
 | Laboratorio, facturación, reportes y portal (M3–M6) | Planificados para Sprint 2; sin módulos funcionales implementados. | Implementación y validación. |
 | Infraestructura y entrega | Docker Compose para PostgreSQL y Redis; API y web locales. | Contenedores de aplicaciones, CI/CD y respaldo/restauración. |
@@ -77,8 +77,8 @@ No se declara ninguna historia terminada hasta completar criterios de aceptació
   * Wireframes de agendamiento, alertas y HCE unificada.
 * **Implementado en backend:** conexión Prisma, prefijo `/api`, validación de DTO, CORS configurable, login JWT, permisos por rol y auditoría explícita en servicios y guard. Registro de pacientes sin cuenta de portal, solo con datos demográficos y de contacto, búsqueda por DNI exacto y consulta de ficha. Los hashes nunca se devuelven en la API.
 * **Integridad en PostgreSQL:** migraciones con anulación justificada, bloqueo de borrado físico de consultas, antecedentes y alergias, bitácora append-only y exclusión de horarios solapados por médico. Las restricciones SQL complementan el esquema Prisma.
-* **Interfaz de admisión implementada:** acceso con cuenta de admisión, búsqueda y selección de pacientes, catálogo de especialidades/médicos, consulta de disponibilidad, confirmación de reserva, listado del día y registro de llegada. Maneja turnos ocupados (409) y pérdida de sesión (401). Ver [guía de la interfaz](apps/web/ADMISSION.md).
-* **Pendiente:** interfaz clínica, registro de pacientes desde la web, reprogramación/cancelación de citas, CIE-10/recetas/signos vitales/HCE cronológica, notificaciones, respaldo/restauración y CI/CD. HU01 cuenta con horarios, disponibilidad y reserva por API y web. HU06, HU07 y HU17 tienen avance de backend; ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
+* **Interfaz de admisión implementada:** acceso con cuenta de admisión, registro demográfico de pacientes, búsqueda y selección, catálogo de especialidades/médicos, consulta de disponibilidad, confirmación de reserva, listado del día y registro de llegada. Maneja documentos duplicados, turnos ocupados (409) y pérdida de sesión (401). Ver [guía de la interfaz](apps/web/ADMISSION.md).
+* **Pendiente:** reprogramación/cancelación de citas, edición clínica de antecedentes/alergias, catálogo CIE-10 completo, notificaciones, respaldo/restauración y CI/CD. La web incluye evaluación de enfermería, consulta médica y lectura de HCE. Ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
 
 ---
 
@@ -310,7 +310,7 @@ Respuestas: 201 con ID, paciente/médico, inicio/fin UTC, estado, canal y modali
 
 Las pruebas de `apps/api/test/integrity.db-spec.ts` verifican dos reservas HTTP simultáneas (201/409), cancelación y nueva reserva, actualización de disponibilidad, validaciones y reversión por fallo de auditoría contra un esquema PostgreSQL temporal. Ejecutar `npm.cmd run test:db` con la base de desarrollo configurada.
 
-Interfaz de admisión implementada: consultar disponibilidad, elegir un paciente existente y confirmar la reserva desde la web. Siguiente incremento: listado y gestión de citas (reprogramación/cancelación) y registro de pacientes desde la interfaz. Feriados y excepciones siguen pendientes. La aceptación de HU01 continúa sujeta a la DoD y revisión por PR.
+Interfaz de admisión implementada: registrar o elegir un paciente, consultar disponibilidad y confirmar la reserva desde la web, listar citas de hoy y registrar llegada. Quedan pendientes la consulta por otras fechas, reprogramación/cancelación, feriados y excepciones. La aceptación de HU01 continúa sujeta a la DoD y revisión por PR.
 
 ---
 
