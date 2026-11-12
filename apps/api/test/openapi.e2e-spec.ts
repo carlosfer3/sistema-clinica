@@ -39,6 +39,8 @@ describe('OpenAPI contract and Swagger UI', () => {
     ['get', '/api/portal/profile'],
     ['get', '/api/portal/appointments'],
     ['get', '/api/portal/history'],
+    ['get', '/api/portal/history-context'],
+    ['get', '/api/portal/notifications'],
     ['get', '/api/portal/catalog'],
     ['get', '/api/portal/availability'],
     ['post', '/api/portal/appointments'],
@@ -58,6 +60,9 @@ describe('OpenAPI contract and Swagger UI', () => {
     ['get', '/api/patients/{id}/clinical-profile'],
     ['get', '/api/patients/{id}/history'],
     ['get', '/api/agenda/catalog'],
+    ['get', '/api/agenda/directory'],
+    ['get', '/api/agenda/admission-summary'],
+    ['post', '/api/agenda/appointments/{id}/reject'],
     ['get', '/api/agenda/availability'],
     ['post', '/api/agenda/appointments'],
     ['get', '/api/agenda/appointments'],
@@ -94,6 +99,7 @@ describe('OpenAPI contract and Swagger UI', () => {
           !path.endsWith('/cancel') &&
           !path.endsWith('/annul') &&
           !path.endsWith('/confirm') &&
+          !path.endsWith('/reject') &&
           !path.endsWith('/settle')
             ? '201'
             : '200'

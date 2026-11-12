@@ -12,6 +12,7 @@ describe('Nursing preparation queue (HTTP, mocked database)', () => {
   const actor = vi.fn();
   const findMany = vi.fn();
   const audit = vi.fn();
+  const specialties = vi.fn();
   const now = new Date('2026-11-09T02:00:00Z');
   const appointment = {
     id: 12,
@@ -42,6 +43,7 @@ describe('Nursing preparation queue (HTTP, mocked database)', () => {
       .useValue({
         usuario: { findUnique: actor },
         cita: { findMany },
+        especialidad: { findMany: specialties },
         bitacoraAuditoria: { create: audit },
       })
       .compile();
@@ -58,6 +60,7 @@ describe('Nursing preparation queue (HTTP, mocked database)', () => {
     actor.mockResolvedValue({ id: 7, rol: 'enfermeria', activo: true });
     findMany.mockResolvedValue([appointment]);
     audit.mockResolvedValue({ id: 1 });
+    specialties.mockResolvedValue([{ id: 1, nombre: 'Medicina General' }]);
   });
   afterEach(() => vi.restoreAllMocks());
   afterAll(async () => {
@@ -68,6 +71,16 @@ describe('Nursing preparation queue (HTTP, mocked database)', () => {
     await request(app.getHttpServer())
       .get('/api/agenda/nursing-queue')
       .expect(401);
+    expect(findMany).not.toHaveBeenCalled();
+  });
+  it('filters before pagination and returns specialty choices from the pending queue', async () => {
+    const result = await get('?buscar=Prueba&especialidadId=1&pagina=2&limite=6').expect(200);
+    expect(result.body.especialidades).toEqual([{ id: 1, nombre: 'Medicina General' }]);
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 6, take: 7, where: expect.objectContaining({ medico: { especialidadId: 1 }, AND: expect.any(Array), preparacionCompletadaEn: null }) }));
+    expect(specialties).toHaveBeenCalledWith(expect.objectContaining({ where: { medicos: { some: { citas: { some: expect.objectContaining({ preparacionCompletadaEn: null, llegadaEn: { not: null } }) } } } } }));
+  });
+  it.each(['?buscar=a', '?especialidadId=0', '?especialidadId=abc'])('rejects invalid filters: %s', async query => {
+    await get(query).expect(400);
     expect(findMany).not.toHaveBeenCalled();
   });
   it.each([
@@ -104,6 +117,7 @@ describe('Nursing preparation queue (HTTP, mocked database)', () => {
     expect(response.body).toEqual({
       fecha: '2026-11-08',
       zonaHoraria: 'America/Lima',
+      especialidades: [{ id: 1, nombre: 'Medicina General' }],
       pagina: 1,
       limite: 50,
       hayMas: false,

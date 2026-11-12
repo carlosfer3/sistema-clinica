@@ -1,0 +1,71 @@
+.nursing-workspace { color: #4c6d80; }
+.nursing-workspace > .page-heading { margin-bottom: 24px; }
+.nursing-workspace > .page-heading p { font-size: .87rem; }
+.nw-workspace-grid { display: grid; grid-template-columns: minmax(300px, .85fr) minmax(0, 2fr); align-items: start; gap: 24px; }
+.nw-panel { min-width: 0; padding: 22px; border: 1px solid #dcecf5; border-radius: 16px; background: #fff; box-shadow: 0 3px 12px #12456b04; }
+.nw-panel h2 { font-size: 1.1rem; }
+.nw-queue-heading { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.nw-queue-heading .eyebrow { font-size: .58rem; display: block; margin: 0 0 5px; }
+.nw-queue-heading h2 { margin: 0; }
+.nw-queue-heading button { padding: 8px 10px; font-size: .7rem; }
+.nw-filters { margin: 18px 0; padding: 14px; border-radius: 10px; background: #f2f8fc; }
+.nw-filters label { margin-top: 0; font-size: .72rem; }
+.nw-filters select { margin-bottom: 12px; }
+.nw-filters input { margin-bottom: 10px; }
+.nw-filters input, .nw-filters select { font-size: .78rem; padding: 10px; }
+.nw-filters button { font-size: .75rem; }
+.nw-patient-list { display: grid; gap: 12px; }
+.nw-patient-card { padding: 15px; border: 1px solid #dcecf5; border-radius: 12px; background: #f8fcff; }
+.nw-patient-card.selected-patient { background: #e8f4fc; border-color: #0789c4; box-shadow: inset 3px 0 #0789c4; }
+.nw-card-top { display: flex; flex-wrap: wrap; gap: 5px; justify-content: space-between; margin-bottom: 12px; font-size: .63rem; }
+.nw-card-top > span { color: #17658d; font-weight: 650; }
+.nw-card-top small { font-size: .63rem; }
+.nw-card-identity { display: flex; align-items: center; gap: 10px; }
+.nw-card-identity > div { min-width: 0; overflow-wrap: anywhere; }
+.nw-avatar { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; background: #dfeff9; color: #12456b; font-size: .8rem; font-weight: 700; }
+.nw-card-identity h3 { margin: 0 0 4px; font-size: .86rem; font-weight: 700; color: #12456b; }
+.nw-card-identity p { margin: 0; font-size: .72rem; }
+.nw-card-identity small { font-size: .67rem; }
+.nw-card-appointment { display: grid; gap: 4px; padding: 12px; margin: 12px 0; border-radius: 8px; background: #fff; font-size: .72rem; }
+.nw-card-appointment strong { color: #17658d; }
+.nw-card-appointment small { font-size: .67rem; }
+.nw-patient-card > button { width: 100%; font-size: .75rem; padding: 9px; }
+.nw-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 18px; font-size: .73rem; }
+.nw-pagination button { padding: 8px; font-size: .72rem; }
+.nw-evaluation { min-width: 0; display: grid; gap: 20px; }
+.nw-patient-banner { display: flex; align-items: center; gap: 16px; padding: 24px; border-radius: 16px; color: #fff; background: linear-gradient(115deg, #12456b, #17658d); }
+.nw-large-avatar { display: grid; place-items: center; flex: none; width: 58px; height: 58px; border-radius: 16px; color: #fff; background: #ffffff20; font-size: 1.2rem; font-weight: 700; }
+.nw-patient-banner > div { min-width: 0; overflow-wrap: anywhere; }
+.nw-patient-banner h2 { margin: 7px 0; color: #fff; font-size: 1.35rem; }
+.nw-banner-caption { color: #e1f5fc; font-size: .65rem; letter-spacing: .04em; }
+.nw-patient-banner p { margin: 5px 0; font-size: .8rem; color: #fff; }
+.nw-patient-banner small { color: #e1f5fc; font-size: .7rem; }
+.nw-form-heading { padding-bottom: 18px; border-bottom: 1px solid #e1edf4; margin-bottom: 20px; }
+.nw-form-heading .eyebrow { display: block; font-size: .6rem; margin: 0 0 6px; }
+.nw-form-heading p { margin: 10px 0 0; font-size: .78rem; }
+.nw-evaluation fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.nw-measurements { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.nw-measurement { padding: 15px; border-radius: 12px; background: #edf7fc; min-width: 0; }
+.nw-measurement h3 { margin: 0 0 12px; font-size: .82rem; font-weight: 700; color: #12456b; }
+.nw-measurement label { display: block; margin: 7px 0 6px; color: #5a778b; font-size: .68rem; line-height: 1.5; }
+.nw-measurement input { background: #fff; padding: 10px; font-size: 1rem; font-weight: 600; color: #12456b; }
+.nw-paired-fields { display: grid; gap: 10px; }
+.nw-observations { margin-top: 24px; padding-top: 20px; border-top: 1px solid #e1edf4; }
+.nw-observations h3 { margin: 0 0 10px; color: #12456b; font-size: .95rem; font-weight: 700; }
+.nw-observations label { display: block; font-size: .8rem; }
+.nw-observations textarea { font-size: .85rem; background: #f5faff; }
+.nw-observations p { margin: 9px 0 0; color: #627b89; font-size: .73rem; }
+.nw-form-actions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding-top: 22px; margin-top: 18px; border-top: 1px solid #e1edf4; }
+.nw-form-actions button { font-size: .8rem; }
+.nw-empty-selection { text-align: center; padding: 50px 28px; }
+.nw-empty-icon { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 20px; border-radius: 18px; background: #e1f5fc; color: #0789c4; font-size: 1.6rem; }
+.nw-empty-selection .eyebrow { display: block; font-size: .65rem; }
+.nw-empty-selection h2 { margin: 12px 0; font-size: 1.3rem; }
+.nw-empty-selection p { margin: 0 auto; max-width: 400px; font-size: .87rem; }
+.nw-empty-selection ol { display: grid; gap: 12px; max-width: 400px; margin: 28px auto 0; padding-left: 20px; text-align: left; font-size: .8rem; }
+dialog.nw-discard { position: fixed; inset: 0; width: min(460px, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); overflow-y: auto; margin: auto; color: #244e66; }
+.nw-discard::backdrop { background: rgb(11 49 73 / .48); }
+.nw-discard h2 { font-size: 1.2rem; }
+@media (max-width: 1200px) { .nw-measurements { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 850px) { .nw-workspace-grid { grid-template-columns: minmax(0, 1fr); } .nw-patient-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 540px) { .nw-panel { padding: 16px; } .nw-patient-list, .nw-measurements { grid-template-columns: minmax(0, 1fr); } .nw-patient-banner { padding: 18px; align-items: start; gap: 12px; } .nw-large-avatar { width: 42px; height: 42px; font-size: .9rem; } .nw-patient-banner h2 { font-size: 1.15rem; } .nw-paired-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } .nw-form-actions button { flex: 1; } }

@@ -15,8 +15,12 @@ describe('Patient portal (HTTP, mocked database)', () => {
   const list = vi.fn();
   const count = vi.fn();
   const history = vi.fn();
+  const clinicalProfile = vi.fn();
+  const specialties = vi.fn();
+  const notificationRows = vi.fn();
   const find = vi.fn();
   const update = vi.fn();
+  const updateMany = vi.fn();
   const create = vi.fn();
   const overlap = vi.fn();
   const tx = {
@@ -54,11 +58,13 @@ describe('Patient portal (HTTP, mocked database)', () => {
       .overrideProvider(PrismaService)
       .useValue({
         usuario: { findUnique: actor },
-        paciente: { findUnique: patient },
-        cita: { findMany: list, count },
+        paciente: { findUnique: patient, findUniqueOrThrow: clinicalProfile },
+        especialidad: { findMany: specialties },
+        cita: { findMany: list, count, updateMany },
         consulta: { findMany: history },
         bitacoraAuditoria: { create: audit },
         $transaction: transaction,
+        $queryRaw: notificationRows,
       })
       .compile();
     app = module.createNestApplication();
@@ -80,7 +86,11 @@ describe('Patient portal (HTTP, mocked database)', () => {
     audit.mockResolvedValue({ id: 1 });
     list.mockResolvedValue([]);
     count.mockResolvedValue(0);
+    updateMany.mockResolvedValue({ count: 0 });
     history.mockResolvedValue([]);
+    clinicalProfile.mockResolvedValue({ alergias: [], antecedentes: [] });
+    specialties.mockResolvedValue([]);
+    notificationRows.mockResolvedValue([]);
     tx.$queryRaw.mockResolvedValue([]);
     tx.medico.findFirst.mockResolvedValue({ id: 2 });
     tx.horarioMedico.findMany.mockResolvedValue([
@@ -187,6 +197,49 @@ describe('Patient portal (HTTP, mocked database)', () => {
         }),
       }),
     );
+  });
+  it('returns persisted notifications with patient ownership and server pagination', async () => {
+    notificationRows.mockResolvedValue(Array.from({ length: 3 }, (_, i) => ({ id: `aviso-${i}`, tipo: 'confirmacion', citaId: 12, inicio: null, inicioAnterior: null, especialidad: 'General', pendienteConfirmacion: false, creadoEn: new Date('2026-11-12T14:00:00Z') })));
+    const response = await get('notifications?pagina=2&limite=2').expect(200);
+    expect(response.body.notificaciones).toHaveLength(2);
+    expect(response.body.hayMas).toBe(true);
+    const [sql, ...parameters] = notificationRows.mock.calls[0];
+    expect(parameters).toEqual([41, 41, 2, 3]);
+    expect(sql.join('')).toContain("b.accion = 'CONFIRM_CITA'");
+    expect(sql.join('')).toContain('NOT EXISTS');
+    expect(response.body.notificaciones[0]).not.toHaveProperty('correo');
+  });
+  it('validates notification pagination and blocks staff access', async () => {
+    await get('notifications?pagina=0').expect(400);
+    await get('notifications?pacienteId=99').expect(400);
+    actor.mockResolvedValue({ id: 7, rol: 'admision', activo: true });
+    await get('notifications').expect(403);
+    expect(notificationRows).not.toHaveBeenCalled();
+  });
+  it('applies history filters before pagination, restricted to the authenticated patient', async () => {
+    await get('history?buscar=J00&especialidadId=2&desde=2026-01-01&hasta=2026-11-12&conReceta=true&pagina=2&limite=6').expect(200);
+    expect(history).toHaveBeenCalledWith(expect.objectContaining({
+      skip: 6, take: 7,
+      where: expect.objectContaining({ pacienteId: 41, medico: { especialidadId: 2 }, estado: 'activo', recetaItems: { some: {} }, OR: expect.any(Array), fechaHora: { gte: new Date('2026-01-01T05:00:00Z'), lt: new Date('2026-11-13T05:00:00Z') } }),
+    }));
+  });
+  it('reads the linked patient clinical context without accepting another patient ID', async () => {
+    await get('history-context').expect(200);
+    expect(clinicalProfile).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 41 }, select: expect.objectContaining({ alergias: expect.any(Object), antecedentes: expect.any(Object) }) }));
+    expect(specialties).toHaveBeenCalledWith(expect.objectContaining({ where: { medicos: { some: { consultas: { some: { pacienteId: 41 } } } } } }));
+  });
+  it('restricts the clinical context to patient accounts and requires its audit', async () => {
+    actor.mockResolvedValue({ id: 7, rol: 'medico', activo: true });
+    await get('history-context').expect(403);
+    expect(clinicalProfile).not.toHaveBeenCalled();
+    actor.mockResolvedValue({ id: 7, rol: 'paciente', activo: true });
+    audit.mockRejectedValueOnce(new Error('Audit unavailable'));
+    await get('history-context').expect(500);
+    expect(clinicalProfile).not.toHaveBeenCalled();
+  });
+  it.each(['desde=2026-02-30', 'desde=2026-11-12&hasta=2026-01-01', 'buscar=a', 'conReceta=bad', 'especialidadId=0'])('rejects invalid history filters: %s', async query => {
+    await get(`history?${query}`).expect(400);
+    expect(history).not.toHaveBeenCalled();
   });
   it('fails closed when auditing is unavailable', async () => {
     audit.mockRejectedValue(new Error('Audit unavailable'));

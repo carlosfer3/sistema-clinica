@@ -27,13 +27,13 @@ export function PatientHistory({ patientId, session, onExpired }: { patientId: n
     return () => controller.abort()
   }, [patientId, session.token, onExpired, page, revision])
   function reload(nextPage: number) { setLoading(true); setHistory(null); setError(''); setPage(nextPage); setRevision(v => v + 1) }
-  return <section aria-labelledby="history-title">
+  return <section className="patient-clinical-history" aria-labelledby="history-title">
     <h3 id="history-title">Historia clínica del paciente</h3>
     <p className="small">Consultas de más reciente a más antigua. Horario de Lima.</p>
     {loading ? <p role="status">Cargando HCE…</p> : error ? <div><p role="alert">{error}</p><button type="button" className="secondary" onClick={() => reload(page)}>Reintentar HCE</button></div> : history && <>
       <p>{history.paciente.nombres} {history.paciente.apellidos} · Documento: {history.paciente.numeroDocumento}</p>
       <h4>Alergias registradas</h4>
-      {history.paciente.alergias.length ? <ul>{history.paciente.alergias.map(a => <li key={a.id}><strong>{a.sustancia}</strong> · {a.reaccion || 'Reacción no registrada'}</li>)}</ul> : <p>No hay alergias registradas. Esto no confirma ausencia de alergias.</p>}
+      {history.paciente.alergias.length ? <ul className="medical-allergies">{history.paciente.alergias.map(a => <li key={a.id}><strong>{a.sustancia}</strong> · {a.reaccion || 'Reacción no registrada'}</li>)}</ul> : <p>No hay alergias registradas. Esto no confirma ausencia de alergias.</p>}
       <h4>Antecedentes registrados</h4>
       {history.paciente.antecedentes.length ? <ul>{history.paciente.antecedentes.map(a => <li key={a.id}>{a.tipo}: {a.descripcion}{a.desde && ` · Desde ${a.desde.slice(0, 10)}`}</li>)}</ul> : <p>No hay antecedentes registrados.</p>}
       <h4>Consultas anteriores</h4>

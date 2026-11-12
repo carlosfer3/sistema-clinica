@@ -7,6 +7,9 @@ import { RemindersService } from '../src/reminders/reminders.service.js';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
 import type { ReminderMailer } from '../src/reminders/reminder-mailer.js';
 import { NotificationsService } from '../src/reminders/notifications.service.js';
+import { PortalService } from '../src/portal/portal.service.js';
+import { AgendaService } from '../src/agenda/agenda.service.js';
+import { AuditService } from '../src/audit/audit.service.js';
 
 describe('Reminder queue with PostgreSQL in an isolated schema', () => {
   const schema = `reminders_${randomUUID().replaceAll('-', '')}`;
@@ -68,5 +71,28 @@ describe('Reminder queue with PostgreSQL in an isolated schema', () => {
     ]);
     const states = await db.$queryRaw<{ estado: string }[]>`SELECT estado FROM notificacion_cita`;
     expect(states.every(r => r.estado === 'enviado')).toBe(true);
+  });
+  it('shows a committed confirmation in the patient inbox independently of email and recovers legacy audit events without duplicates', async () => {
+    const original = await db.cita.findUniqueOrThrow({ where: { id: citaId } });
+    const account = await db.usuario.create({ data: { username: 'inbox-patient', passwordHash: 'test-only', nombres: 'Paciente', apellidos: 'Avisos', rol: 'paciente' } });
+    await db.paciente.update({ where: { id: original.pacienteId }, data: { usuarioId: account.id } });
+    const start = new Date(Date.now() + 86400000);
+    const appointment = await db.cita.create({ data: { pacienteId: original.pacienteId, medicoId: original.medicoId, creadoPor: original.creadoPor, fechaHoraInicio: start, fechaHoraFin: new Date(start.getTime() + 1200000), canalOrigen: 'portal', estado: 'pendiente_confirmacion' } });
+    const audit = new AuditService(db as PrismaService);
+    const agenda = new AgendaService(db as PrismaService, audit);
+    const portal = new PortalService(db as PrismaService, audit, agenda);
+    await agenda.confirm(appointment.id, original.creadoPor);
+    await agenda.confirm(appointment.id, original.creadoPor);
+    await db.$executeRaw`UPDATE notificacion_cita SET estado = 'fallido' WHERE cita_id = ${appointment.id} AND tipo = 'confirmacion'`;
+    let inbox = await portal.notifications({ pagina: 1, limite: 100 }, account.id);
+    let confirmations = inbox.notificaciones.filter(n => n.citaId === appointment.id && n.tipo === 'confirmacion');
+    expect(confirmations).toHaveLength(1);
+    expect(confirmations[0].id).toMatch(/^aviso-/);
+    await db.$executeRaw`DELETE FROM notificacion_cita WHERE cita_id = ${appointment.id} AND tipo = 'confirmacion'`;
+    inbox = await portal.notifications({ pagina: 1, limite: 100 }, account.id);
+    confirmations = inbox.notificaciones.filter(n => n.citaId === appointment.id && n.tipo === 'confirmacion');
+    expect(confirmations).toHaveLength(1);
+    expect(confirmations[0].id).toMatch(/^auditoria-/);
+    expect(confirmations[0].inicio).toBeNull();
   });
 });

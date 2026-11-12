@@ -53,6 +53,7 @@ async function login(page: Page) {
     .getByLabel("Contraseña", { exact: true })
     .fill("fictitious-password");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
+  await page.getByRole('navigation', { name: 'Opciones de admisión' }).getByRole('button', { name: 'Reservar cita', exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Reserva de citas" }),
   ).toBeVisible();
@@ -279,6 +280,7 @@ test("retries a failed catalog load and handles a catalog without schedules", as
     .getByLabel("Contraseña", { exact: true })
     .fill("fictitious-password");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
+  await page.getByRole('navigation', { name: 'Opciones de admisión' }).getByRole('button', { name: 'Reservar cita', exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("No se pudieron cargar");
   await page.route("**/api/agenda/catalog", (route) =>
     route.fulfill({ json: { especialidades: [] } }),

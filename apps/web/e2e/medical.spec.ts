@@ -63,13 +63,27 @@ test('retries history failure without losing the consultation draft', async ({ p
 })
 test('medical consultation without prescription confirms identity and completes appointment', async ({ page }) => {
   await setup(page); await fill(page)
+  await expect(page.getByRole('button', { name: 'Consultas registradas', exact: true })).toBeDisabled()
+  await page.screenshot({ path: test.info().outputPath('medical-station-desktop.png'), fullPage: true })
   let writes = 0
   await page.route('**/api/agenda/medical-queue?*', r => r.fulfill({ json: { fecha: '2026-11-10', pacientes: writes ? [] : [patient], hayMas: false } }))
   await page.route('**/api/consultations', r => { if (r.request().method() === 'GET') return r.fallback(); writes++; expect(r.request().headers().authorization).toBe('Bearer medical-token'); expect(r.request().postDataJSON()).toEqual({ citaId: 12, motivo: 'Motivo ficticio', indicaciones: 'Indicaciones ficticias', diagnosticos: [{ codigo: 'J00' }], receta: [] }); return r.fulfill({ status: 201, json: { id: 42 } }) })
   await page.getByRole('button', { name: 'Revisar consulta' }).click(); await expect(page.getByText('Sin receta.')).toBeVisible(); expect(writes).toBe(0)
+  const dialog = page.getByRole('dialog', { name: 'Confirmar atención' })
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: 'Seguir editando' }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(page.getByLabel('Motivo de consulta', { exact: true })).toHaveValue('Motivo ficticio')
+  expect(writes).toBe(0)
+  await page.getByRole('button', { name: 'Revisar consulta' }).click()
   await page.screenshot({ path: 'test-results/medical-review.png', fullPage: true })
   await page.getByRole('button', { name: 'Confirmar y guardar consulta' }).click(); await expect(page.getByRole('status').filter({ hasText: 'Consulta #42' })).toContainText('Consulta #42 registrada'); expect(writes).toBe(1)
   await expect(page.getByRole('button', { name: 'Atender paciente' })).toHaveCount(0)
+  await expect(dialog.getByRole('heading', { name: 'Consulta guardada' })).toBeVisible()
+  await expect(dialog.getByText('Atendida', { exact: true })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Volver a mis citas' }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(page.getByText('No hay pacientes preparados en esta página.')).toBeVisible()
 })
 test('manual prescription sends independent items and preserves fields after validation failure', async ({ page }) => {
   await setup(page); await fill(page)
@@ -88,6 +102,8 @@ for (const status of [401, 403, 409, 500]) test(`handles save error ${status} wi
 })
 test('blocks duplicate submission and logout, and fits mobile viewport', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 }); await setup(page); await fill(page)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: test.info().outputPath('medical-station-mobile.png'), fullPage: true })
   let release!: () => void; const gate = new Promise<void>(r => { release = r }); let writes = 0
   await page.route('**/api/consultations', async r => { if (r.request().method() === 'GET') return r.fallback(); writes++; await gate; await r.fulfill({ status: 201, json: { id: 42 } }) })
   await page.getByRole('button', { name: 'Revisar consulta' }).click(); await page.getByRole('button', { name: 'Confirmar y guardar consulta' }).click()

@@ -1,0 +1,64 @@
+.ph-history { color: #4c6d80; }
+.ph-history .pp-secondary { border: 1px solid #b9ddea; background: #fff; color: #17658d; border-radius: 8px; padding: 10px 14px; }
+.ph-history .pp-secondary:hover:not(:disabled) { background: #edf9fe; }
+.ph-intro { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+.ph-intro-icon { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: #e1f5fc; color: #17658d; font-weight: 750; }
+.ph-eyebrow { text-transform: uppercase; letter-spacing: .08em; font-size: .64rem; color: #627b89; margin: 0 0 5px; }
+.ph-intro h2 { margin: 0 0 8px; font-size: 1.6rem; }
+.ph-intro p:last-child { margin: 0; font-size: .85rem; }
+.ph-filters { display: flex; flex-direction: row; flex-wrap: wrap; align-items: end; gap: 12px; padding: 18px; margin-bottom: 28px; border: 1px solid #e1edf4; border-radius: 14px; background: #fff; }
+.ph-filters > div { flex: 1; min-width: 140px; }
+.ph-filters > div.ph-search { flex: 2; min-width: 240px; }
+.ph-filters label { display: block; margin: 0 0 7px; font-size: .75rem; }
+.ph-filters input, .ph-filters select { font-size: .8rem; padding: 10px; background: #f5faff; }
+.ph-filters label.ph-checkbox { display: flex; align-items: center; gap: 7px; padding: 10px 0; margin: 0; white-space: nowrap; }
+.ph-checkbox input { width: 16px; height: 16px; accent-color: #0789c4; }
+.ph-filters button { min-height: 40px; font-size: .77rem; }
+.ph-layout { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr); align-items: start; gap: 24px; }
+.ph-main, .ph-sidebar { min-width: 0; }
+.ph-timeline-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 18px; }
+.ph-timeline-heading h3 { font-size: .95rem; font-weight: 700; color: #245773; margin: 0; }
+.ph-timeline-heading > span { font-size: .7rem; color: #627b89; }
+.ph-timeline { border-left: 2px solid #d8eaf5; margin-left: 9px; padding-left: 22px; }
+.ph-consultation { position: relative; border: 1px solid #e1edf4; border-radius: 15px; padding: 22px; background: #fff; margin-bottom: 18px; box-shadow: 0 3px 12px #12456b04; }
+.ph-consultation::before { content: ''; position: absolute; left: -30px; top: 25px; width: 13px; height: 13px; border: 3px solid #f2f8fc; border-radius: 50%; background: #0789c4; box-sizing: content-box; }
+.ph-card-top, .ph-doctor { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.ph-specialty, .ph-state { padding: 5px 9px; border-radius: 20px; background: #e1f5fc; color: #17658d; font-size: .68rem; font-weight: 600; }
+.ph-card-top time { font-size: .72rem; color: #627b89; }
+.ph-doctor { margin-top: 16px; }
+.ph-doctor h3 { margin: 0; color: #12456b; font-size: 1rem; font-weight: 700; }
+.ph-state { color: #155b43; background: #e8f5ee; }
+.ph-state.annulled { color: #9c302d; background: #fff0ed; }
+.ph-record-id { font-size: .68rem; color: #627b89; margin: 5px 0 16px; }
+.ph-clinical-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; border-radius: 10px; background: #f5faff; }
+.ph-consultation h4 { font-size: .72rem; color: #627b89; margin: 0 0 6px; font-weight: 600; }
+.ph-clinical-detail p, .ph-expanded p { font-size: .83rem; line-height: 1.6; margin: 0 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ph-code { display: inline-block; padding: 2px 5px; background: #e1f5fc; border-radius: 5px; color: #17658d; font-size: .75rem; font-weight: 700; }
+.ph-clinical-detail small { display: block; color: #627b89; font-size: .66rem; }
+.ph-expanded { margin-top: 16px; }
+.ph-expanded summary { color: #17658d; cursor: pointer; font-size: .78rem; font-weight: 650; padding: 6px 0; }
+.ph-expanded h4 { margin-top: 16px; color: #245773; }
+.ph-medication { border: 1px solid #e1edf4; border-radius: 9px; padding: 12px; margin-top: 10px; font-size: .8rem; }
+.ph-medication strong { color: #12456b; display: block; margin-bottom: 7px; }
+.ph-medication p { margin-bottom: 4px; font-size: .77rem; }
+.ph-annulment { padding: 12px; border-radius: 9px; background: #fff0ed; color: #9c302d; font-size: .8rem; margin: 0; }
+.ph-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-top: 12px; }
+.ph-pagination span { font-size: .73rem; }
+.ph-pagination button { font-size: .78rem; }
+.ph-sidebar { display: grid; gap: 18px; }
+.ph-summary, .ph-help, .ph-empty { padding: 22px; border: 1px solid #e1edf4; background: #fff; border-radius: 15px; }
+.ph-summary h3, .ph-help h3 { margin: 0 0 16px; font-size: 1rem; font-weight: 700; color: #12456b; }
+.ph-summary h4 { font-size: .8rem; font-weight: 700; margin: 20px 0 9px; color: #245773; }
+.ph-summary p, .ph-help p, .ph-empty p { font-size: .78rem; line-height: 1.6; }
+.ph-patient { display: grid; gap: 6px; padding: 14px 0; border-top: 1px solid #e1edf4; border-bottom: 1px solid #e1edf4; overflow-wrap: anywhere; font-size: .85rem; }
+.ph-patient span { font-size: .72rem; }
+.ph-allergies, .ph-background { padding: 0; margin: 0; list-style: none; display: grid; gap: 9px; }
+.ph-allergies li { display: grid; gap: 4px; padding: 12px; background: #fff0ed; color: #9c302d; border-radius: 9px; font-size: .8rem; overflow-wrap: anywhere; }
+.ph-allergies span { font-size: .72rem; }
+.ph-background li { padding: 12px; border-radius: 9px; background: #f5faff; font-size: .78rem; overflow-wrap: anywhere; }
+.ph-background p { margin: 5px 0; }
+.ph-help { background: #edf7fc; }
+.ph-help button, .ph-summary button { font-size: .75rem; }
+.ph-empty h3 { font-size: 1rem; color: #245773; }
+@media (max-width: 1100px) { .ph-layout { grid-template-columns: minmax(0, 1fr); } .ph-sidebar { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
+@media (max-width: 600px) { .ph-sidebar, .ph-clinical-detail { grid-template-columns: minmax(0, 1fr); } .ph-filters > div.ph-search { min-width: 100%; } .ph-consultation { padding: 16px; } .ph-timeline { padding-left: 15px; } .ph-consultation::before { left: -23px; } .ph-intro { align-items: start; } .ph-intro h2 { font-size: 1.25rem; } .ph-intro-icon { width: 40px; height: 40px; } }

@@ -21,7 +21,7 @@ import {
   CancelAppointmentDto,
   PortalRescheduleAppointmentDto,
 } from '../agenda/change-appointment.dto.js';
-import { PortalAppointmentsDto, PortalBookingDto } from './portal.dto.js';
+import { PortalAppointmentsDto, PortalBookingDto, PortalHistoryDto } from './portal.dto.js';
 import { PortalService } from './portal.service.js';
 
 @ApiTags('Portal del paciente')
@@ -60,17 +60,33 @@ export class PortalController {
 
   @Get('history')
   @ApiContract('Consultar mis consultas y recetas', 'PortalHistory', {
+    description: 'Historial propio, con búsqueda por médico/especialidad/motivo/diagnóstico, especialidad, fechas de Lima inclusivas y consultas activas con receta. Filtros aplicados antes de paginar.',
     errors: {
-      400: 'Paginación inválida.',
+      400: 'Filtros, rango de fechas o paginación inválidos.',
       404: 'Cuenta sin paciente vinculado.',
     },
   })
   history(
-    @Query() query: NursingQueueDto,
+    @Query() query: PortalHistoryDto,
     @Req() req: AuthRequest,
     @Ip() ip: string,
   ) {
     return this.portal.history(query, req.user!.id, ip);
+  }
+
+  @Get('history-context')
+  @ApiContract('Consultar mi resumen clínico y especialidades de mi historial', 'PortalHistoryContext')
+  historyContext(@Req() req: AuthRequest, @Ip() ip: string) {
+    return this.portal.historyContext(req.user!.id, ip);
+  }
+
+  @Get('notifications')
+  @ApiContract('Consultar mis notificaciones de citas', 'PortalNotifications', {
+    description: 'Avisos propios de registro, confirmación, reprogramación y cancelación, independientemente del envío de correo. Recupera confirmaciones auditadas anteriores sin aviso duplicado.',
+    errors: { 400: 'Paginación inválida.', 404: 'Cuenta sin paciente vinculado.' },
+  })
+  notifications(@Query() query: NursingQueueDto, @Req() req: AuthRequest, @Ip() ip: string) {
+    return this.portal.notifications(query, req.user!.id, ip);
   }
 
   @Get('catalog')

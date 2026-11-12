@@ -61,6 +61,8 @@ const charge = {
   referencia: nullable(text),
 };
 export const responseSchemas: Record<string, SchemaObject> = {
+  MedicalDirectory: object({ especialidades: array(object({ id: integer, nombre: text })), pagina: integer, limite: integer, hayMas: { type: 'boolean' }, medicos: array(object({ ...identity, especialidad: object({ id: integer, nombre: text }) })) }),
+  AdmissionSummary: object({ fecha: { type: 'string', format: 'date' }, zonaHoraria: text, citasHoy: integer, llegadasRegistradas: integer, pendientesLlegada: integer, solicitudesPendientes: integer }),
   Charge: object(charge),
   BillingPatient: object({ ...identity, numeroDocumento: text }),
   Charges: object({
@@ -129,6 +131,15 @@ export const responseSchemas: Record<string, SchemaObject> = {
     ),
     pagina: integer,
     hayMas: { type: 'boolean' },
+  }),
+  PortalHistoryContext: object({
+    antecedentes: array(object({ id: integer, tipo: text, descripcion: text, desde: nullable({ type: 'string', format: 'date' }) })),
+    alergias: array(object({ id: integer, sustancia: text, reaccion: nullable(text) })),
+    especialidades: array(object({ id: integer, nombre: text })),
+  }),
+  PortalNotifications: object({
+    notificaciones: array(object({ id: text, tipo: text, citaId: integer, inicio: nullable(instant), inicioAnterior: nullable(instant), especialidad: text, pendienteConfirmacion: { type: 'boolean' }, creadoEn: instant })),
+    pagina: integer, hayMas: { type: 'boolean' },
   }),
   Error: object(
     {
@@ -343,6 +354,7 @@ export const responseSchemas: Record<string, SchemaObject> = {
     ),
   }),
   NursingQueue: object({
+    especialidades: array(object({ id: integer, nombre: text })),
     fecha: { type: 'string', format: 'date' },
     zonaHoraria: { type: 'string', enum: ['America/Lima'] },
     pagina: integer,

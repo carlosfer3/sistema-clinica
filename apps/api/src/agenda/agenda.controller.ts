@@ -1,12 +1,15 @@
 import {
   CancelAppointmentDto,
+  RejectAppointmentDto,
   RescheduleAppointmentDto,
 } from './change-appointment.dto.js';
 import { DailyAppointmentsDto } from './daily-appointments.dto.js';
+import { DirectoryDto } from './directory.dto.js';
 import { ApiBody, ApiTags } from '@nestjs/swagger';
 import { ApiContract } from '../openapi/api-contract.decorator.js';
 import { VitalSignsDto } from './vital-signs.dto.js';
 import { NursingQueueDto } from './nursing-queue.dto.js';
+import { NursingWorklistDto } from './nursing-worklist.dto.js';
 import {
   BadRequestException,
   Body,
@@ -30,6 +33,25 @@ import { CreateAppointmentDto } from './create-appointment.dto.js';
 @Controller('agenda')
 export class AgendaController {
   constructor(private readonly agenda: AgendaService) {}
+
+  @ApiContract('Filtrar directorio médico', 'MedicalDirectory', {
+    description: 'Solo admisión. Especialidades disponibles y médicos paginados por especialidad o nombre. Sin filtros no devuelve médicos.',
+    errors: { 400: 'Filtros o paginación inválidos.' },
+  })
+  @Get('directory')
+  @Roles('admision')
+  directory(@Query() query: DirectoryDto, @Req() req: AuthRequest, @Ip() ip: string) {
+    return this.agenda.directory(query, req.user!.id, ip);
+  }
+
+  @ApiContract('Resumen operativo de admisión', 'AdmissionSummary', {
+    description: 'Totales completos de hoy en America/Lima y solicitudes futuras pendientes del portal. Solo admisión.',
+  })
+  @Get('admission-summary')
+  @Roles('admision')
+  admissionSummary(@Req() req: AuthRequest, @Ip() ip: string) {
+    return this.agenda.admissionSummary(req.user!.id, ip);
+  }
 
   @ApiContract('Consultar catálogo de agenda', 'Catalog', {
     description:
@@ -121,6 +143,23 @@ export class AgendaController {
     @Ip() ip: string,
   ) {
     return this.agenda.cancel(params.id, req.user!.id, ip);
+  }
+
+  @ApiContract('Rechazar solicitud pendiente del portal', 'Appointment', {
+    description: 'Solo admisión. Rechaza únicamente solicitudes pendientes del portal, libera el turno y registra el motivo en auditoría. La cita queda cancelada.',
+    errors: { 400: 'ID o motivo inválido.', 404: 'Cita inexistente.', 409: 'Solicitud no pendiente.' },
+  })
+  @ApiBody({ type: RejectAppointmentDto })
+  @Post('appointments/:id/reject')
+  @HttpCode(200)
+  @Roles('admision')
+  reject(
+    @Param() params: ArrivalParamsDto,
+    @Body() dto: RejectAppointmentDto,
+    @Req() req: AuthRequest,
+    @Ip() ip: string,
+  ) {
+    return this.agenda.reject(params.id, dto.motivo, req.user!.id, ip);
   }
 
   @ApiContract('Confirmar solicitud de cita del portal', 'Appointment', {
@@ -222,16 +261,16 @@ export class AgendaController {
     'NursingQueue',
     {
       description:
-        'Solo enfermería. Citas presenciales de hoy en Lima con llegada y preparación pendiente; estados programada, confirmada o reprogramada. Orden por llegada e ID, con paginación. Sin historial, signos vitales ni datos de contacto.',
+        'Solo enfermería. Citas presenciales de hoy en Lima con llegada y preparación pendiente; estados programada, confirmada o reprogramada. Búsqueda por nombre, apellido o documento y filtro por especialidad antes de paginar. Devuelve las especialidades con pacientes pendientes. Orden por llegada e ID. Sin historial, signos vitales ni datos de contacto.',
       errors: {
-        400: 'Paginación inválida o filtros desconocidos; no admite otra fecha.',
+        400: 'Paginación o filtros inválidos; búsqueda de 2 a 100 caracteres. No admite otra fecha.',
       },
     },
   )
   @Get('nursing-queue')
   @Roles('enfermeria')
   nursingQueue(
-    @Query() query: NursingQueueDto,
+    @Query() query: NursingWorklistDto,
     @Req() req: AuthRequest,
     @Ip() ip: string,
   ) {

@@ -1,5 +1,19 @@
 # Portal del paciente
 
+## Notificaciones y progreso de la cita
+
+La campana muestra **Notificaciones de tus citas**, con avisos persistidos de registro, confirmación por admisión, reprogramación y cancelación, además de las alertas generales existentes. `GET /portal/notifications` usa el paciente vinculado a la sesión, paginación y auditoría de lectura; no devuelve correo, IP ni datos del personal. El listado es independiente del estado de entrega por correo y recupera confirmaciones históricas de `CONFIRM_CITA` cuando esa cita no tiene un aviso de confirmación persistido, sin inventar su horario anterior ni duplicar el aviso. No se marca el listado como leído ni se presenta un contador de avisos sin leer.
+
+El flujo muestra una barra accesible de cuatro etapas: confirmación, llegada, triaje y consulta registrada. Los avances corresponden a 0%, 25%, 50%, 75% y 100% según estado y marcas reales; no indican tiempo estimado de espera. Citas canceladas o con inasistencia muestran flujo cerrado. La barra se incluye en el dashboard y en el detalle de la cita. La bandeja de avisos se consulta al abrirse y cada 30 segundos mientras está visible; dashboard y citas también actualizan sus datos al recuperar foco y cada 30 segundos, sin interrumpir escrituras.
+
+## Mi historial médico
+
+El historial presenta una línea de tiempo paginada de seis consultas por página y un resumen lateral con identidad, alergias y antecedentes registrados. Los detalles desplegables muestran indicaciones y receta por consulta. Las consultas anuladas muestran su motivo de anulación y ocultan su contenido clínico y receta. No se incluyen resultados, PDF, EPS, firmas ni documentos ficticios.
+
+`GET /portal/history` admite `buscar` (2–100 caracteres), `especialidadId`, `desde`, `hasta` y `conReceta`, además de `pagina` y `limite`. La API aplica filtros antes de paginar y siempre obtiene el paciente desde la sesión. Las fechas incluyen los días completos de Lima; se rechazan fechas imposibles y rangos invertidos. `conReceta=true` limita a consultas activas con medicamentos registrados, sin afirmar vigencia del tratamiento. La interfaz cuenta registros solo en la página visible, sin presentar ese número como total global.
+
+`GET /portal/history-context` devuelve únicamente alergias, antecedentes y especialidades del historial del paciente autenticado. La lectura se audita y no acepta un ID de paciente para sustituir la cuenta. La falta de registros de alergias no se presenta como ausencia clínica de alergias. Los errores de resumen permiten reintentar sin bloquear las consultas. Cambiar filtros vuelve a la primera página, descarta resultados anteriores y cancela lecturas obsoletas. **Mis recetas** conserva su sección propia.
+
 Vista basada en `Untitled.png`: barra lateral con logo, encabezado de cuenta, tarjeta de próxima cita, citas siguientes, accesos rápidos y aviso de preparación. Se adapta a escritorio y móvil. Los datos de la referencia no se cargan en la aplicación.
 
 ## Acceso y datos

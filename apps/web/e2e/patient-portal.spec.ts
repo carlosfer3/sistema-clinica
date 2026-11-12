@@ -74,6 +74,8 @@ async function setup(page: Page, citas: object[] = [first, second]) {
       json: { consultas: [consultation], pagina: 1, hayMas: false },
     }),
   )
+  await page.route('**/api/portal/history-context', route => route.fulfill({ json: { especialidades: [{ id: 1, nombre: 'Medicina general' }], alergias: [{ id: 1, sustancia: 'Penicilina', reaccion: 'Reacción registrada' }], antecedentes: [{ id: 1, tipo: 'Personal', descripcion: 'Antecedente de prueba', desde: null }] } }))
+  await page.route('**/api/portal/notifications?*', route => route.fulfill({ json: { notificaciones: [], pagina: 1, hayMas: false } }))
   await page.route('**/api/portal/catalog', (route) =>
     route.fulfill({
       json: {
@@ -347,4 +349,97 @@ test('express booking assigns an available doctor by specialty and time', async 
   await expect(page.locator('.pp-express').first()).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ path: test.info().outputPath('appointments-mobile.png'), fullPage: true })
+})
+
+
+test('filters the complete history, paginates and displays its clinical summary', async ({ page }) => {
+  await setup(page)
+  await login(page)
+  await page.route('**/api/portal/history?*', route => {
+    const query = new URL(route.request().url()).searchParams
+    const secondPage = query.get('pagina') === '2'
+    if (query.get('buscar')) {
+      expect(query.get('buscar')).toBe('J00')
+      expect(query.get('especialidadId')).toBe('1')
+      expect(query.get('conReceta')).toBe('true')
+      expect(query.get('desde')).toBe('2026-01-01')
+    }
+    return route.fulfill({ json: { consultas: [{ ...consultation, id: secondPage ? 9 : 8 }], pagina: secondPage ? 2 : 1, hayMas: !secondPage } })
+  })
+  await page.getByRole('navigation', { name: 'Mi portal' }).getByRole('button', { name: 'Mi historial', exact: true }).click()
+  await expect(page.getByText('Penicilina', { exact: true })).toBeVisible()
+  await expect(page.getByText('Antecedente de prueba', { exact: true })).toBeVisible()
+  await page.getByLabel('Buscar en mi historial').fill('J00')
+  await page.getByLabel('Especialidad', { exact: true }).selectOption('1')
+  await page.getByLabel('Desde', { exact: true }).fill('2026-01-01')
+  await page.getByLabel('Con receta', { exact: true }).check()
+  await page.getByRole('button', { name: 'Aplicar filtros' }).click()
+  await expect(page.getByRole('article', { name: 'Consulta #8' })).toBeVisible()
+  await page.getByText('Ver indicaciones y receta', { exact: false }).click()
+  await expect(page.getByText('Medicamento ficticio', { exact: true })).toBeVisible()
+  await page.screenshot({ path: test.info().outputPath('patient-history-desktop.png'), fullPage: true })
+  await page.getByRole('navigation', { name: 'Páginas de mi historial' }).getByRole('button', { name: 'Siguiente' }).click()
+  await expect(page.getByRole('article', { name: 'Consulta #9' })).toBeVisible()
+  await page.getByRole('button', { name: 'Limpiar', exact: true }).click()
+  await expect(page.getByLabel('Buscar en mi historial')).toHaveValue('')
+  await expect(page.getByRole('article', { name: 'Consulta #8' })).toBeVisible()
+  await page.setViewportSize({ width: 375, height: 812 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: test.info().outputPath('patient-history-mobile.png'), fullPage: true })
+})
+
+
+test('hides cancelled consultation details and retries clinical context independently', async ({ page }) => {
+  await setup(page)
+  await login(page)
+  await page.route('**/api/portal/history-context', route => route.fulfill({ status: 500, json: {} }))
+  await page.route('**/api/portal/history?*', route => route.fulfill({ json: { consultas: [{ ...consultation, estado: 'anulado', motivoAnulacion: 'Registro duplicado', motivo: 'Contenido anulado oculto' }], pagina: 1, hayMas: false } }))
+  await page.getByRole('navigation', { name: 'Mi portal' }).getByRole('button', { name: 'Mi historial', exact: true }).click()
+  await expect(page.getByText('Consulta anulada', { exact: true })).toBeVisible()
+  await expect(page.getByText('Contenido anulado oculto', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('Medicamento ficticio', { exact: true })).toHaveCount(0)
+  await page.route('**/api/portal/history-context', route => route.fulfill({ json: { especialidades: [], alergias: [], antecedentes: [] } }))
+  await page.getByRole('button', { name: 'Reintentar resumen' }).click()
+  await expect(page.getByText('No hay alergias registradas. Esto no confirma ausencia de alergias.')).toBeVisible()
+})
+
+
+test('shows the confirmation notification and updates appointment progress on focus', async ({ page }) => {
+  await setup(page)
+  let stage = 0
+  await page.route('**/api/portal/appointments?*', route => route.fulfill({ json: { citas: [{ ...first, estado: stage === 0 ? 'pendiente_confirmacion' : 'confirmada', llegadaEn: stage >= 2 ? '2026-11-13T13:45:00Z' : null, preparacionCompletadaEn: stage >= 3 ? '2026-11-13T13:50:00Z' : null }], pagina: 1, total: 1, hayMas: false } }))
+  await page.route('**/api/portal/notifications?*', route => route.fulfill({ json: { notificaciones: [{ id: 'auditoria-8', tipo: 'confirmacion', citaId: 12, inicio: null, inicioAnterior: null, especialidad: 'Medicina general', pendienteConfirmacion: false, creadoEn: '2026-11-12T14:00:00Z' }], pagina: 1, hayMas: false } }))
+  await login(page)
+  const progress = page.getByRole('progressbar', { name: 'Progreso de tu atención' })
+  await expect(progress).toHaveAttribute('value', '0')
+  for (stage = 1; stage <= 3; stage++) {
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await expect(progress).toHaveAttribute('value', String(stage))
+  }
+  await page.getByRole('button', { name: 'Notificaciones', exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('heading', { name: 'Cita confirmada por admisión', exact: true })).toBeVisible()
+  await expect(dialog.getByText('Admisión confirmó tu cita #12.', { exact: false })).toBeVisible()
+})
+
+
+test('completes the progress only for attended appointments and closes cancelled flows', async ({ page }) => {
+  await setup(page)
+  await page.route('**/api/portal/appointments?*', route => {
+    const cancelled = new URL(route.request().url()).searchParams.get('scope') === 'cancelled'
+    return route.fulfill({ json: { citas: [{ ...first, estado: cancelled ? 'cancelada' : 'atendida', llegadaEn: '2026-11-13T13:45:00Z', preparacionCompletadaEn: '2026-11-13T13:50:00Z' }], total: 1, pagina: 1, hayMas: false } })
+  })
+  await login(page)
+  await page.getByRole('navigation', { name: 'Mi portal' }).getByRole('button', { name: 'Mis citas', exact: true }).click()
+  await page.getByRole('tab', { name: 'Historial y pasadas' }).click()
+  await page.getByRole('button', { name: 'Ver detalle', exact: true }).click()
+  let dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('progressbar', { name: 'Progreso de tu atención' })).toHaveAttribute('value', '4')
+  await expect(dialog.getByText('Atención completada', { exact: true })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Cerrar ventana' }).click()
+  await page.getByRole('tab', { name: 'Canceladas' }).click()
+  await page.getByRole('button', { name: 'Ver detalle', exact: true }).click()
+  dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('progressbar')).toHaveCount(0)
+  await expect(dialog.getByText('La cita fue cancelada. El flujo de atención está cerrado.')).toBeVisible()
 })

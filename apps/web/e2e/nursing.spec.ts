@@ -36,7 +36,10 @@ test('blocks missing or out-of-range measurements before sending', async ({ page
   let writes = 0; await page.route('**/api/agenda/nursing-queue?*', route => route.fulfill({ json: queue() })); await page.route('**/api/agenda/appointments/12/vital-signs', route => { writes++; return route.fulfill({ status: 201, json: {} }) })
   await login(page); await select(page); await page.getByRole('button', { name: 'Guardar evaluación' }).click(); expect(writes).toBe(0)
   await fill(page); await page.getByLabel('Saturación de oxígeno (%)', { exact: true }).fill('101'); await page.getByRole('button', { name: 'Guardar evaluación' }).click(); expect(writes).toBe(0)
-  await page.getByRole('button', { name: 'Volver a pendientes' }).click(); await select(page); await expect(page.getByLabel('Temperatura (°C)', { exact: true })).toHaveValue('')
+  await page.getByRole('button', { name: 'Volver a pendientes' }).click()
+  await expect(page.getByRole('dialog', { name: '¿Descartar las mediciones?' })).toBeVisible()
+  await page.getByRole('button', { name: 'Descartar y continuar' }).click()
+  await select(page); await expect(page.getByLabel('Temperatura (°C)', { exact: true })).toHaveValue('')
 })
 test('prevents duplicate saves and logout while the evaluation is pending', async ({ page }) => {
   let release!: () => void; let writes = 0; const gate = new Promise<void>(resolve => { release = resolve })
@@ -74,4 +77,31 @@ test('supports nursing on mobile without horizontal overflow', async ({ page }) 
   await page.setViewportSize({ width: 375, height: 812 }); await page.route('**/api/agenda/nursing-queue?*', route => route.fulfill({ json: queue() })); await login(page); await select(page); await fill(page)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ path: test.info().outputPath('nursing-mobile.png'), fullPage: true })
+})
+
+
+test('filters pending patients on the server and protects unsaved measurements when changing patients', async ({ page }) => {
+  await page.route('**/api/agenda/nursing-queue?*', route => {
+    const query = new URL(route.request().url()).searchParams
+    expect(query.get('limite')).toBe('6')
+    const filtered = query.get('buscar') === 'Segundo'
+    if (filtered) { expect(query.get('especialidadId')).toBe('1'); expect(query.get('pagina')).toBe('1') }
+    return route.fulfill({ json: { ...queue(filtered ? [{ ...pending, citaId: 13, paciente: { ...pending.paciente, nombres: 'Segundo', apellidos: 'Paciente' } }] : [pending, { ...pending, citaId: 13, paciente: { ...pending.paciente, nombres: 'Segundo', apellidos: 'Paciente' } }]), especialidades: [{ id: 1, nombre: 'General' }] } })
+  })
+  await login(page)
+  await page.getByRole('article', { name: 'Cita 12', exact: true }).getByRole('button', { name: 'Evaluar', exact: true }).click()
+  await page.getByLabel('Temperatura (°C)', { exact: true }).fill('36.5')
+  await page.getByRole('article', { name: 'Cita 13', exact: true }).getByRole('button', { name: 'Evaluar', exact: true }).click()
+  await page.getByRole('button', { name: 'Seguir evaluando' }).click()
+  await expect(page.getByLabel('Temperatura (°C)', { exact: true })).toHaveValue('36.5')
+  await page.getByRole('article', { name: 'Cita 13', exact: true }).getByRole('button', { name: 'Evaluar', exact: true }).click()
+  await page.getByRole('button', { name: 'Descartar y continuar' }).click()
+  await expect(page.getByLabel('Temperatura (°C)', { exact: true })).toHaveValue('')
+  await page.getByLabel('Buscar paciente por apellido o documento').fill('Segundo')
+  await page.getByLabel('Especialidad', { exact: true }).selectOption('1')
+  await page.getByRole('button', { name: 'Filtrar pendientes' }).click()
+  await expect(page.getByRole('article', { name: 'Cita 12', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('article', { name: 'Cita 13', exact: true })).toBeVisible()
+  await page.getByRole('article', { name: 'Cita 13', exact: true }).getByRole('button', { name: 'Evaluar', exact: true }).click()
+  await page.screenshot({ path: test.info().outputPath('nursing-desktop.png'), fullPage: true })
 })

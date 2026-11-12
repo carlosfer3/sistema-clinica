@@ -12,6 +12,7 @@ async function setup(page: Page, role = 'admision') {
   await page.getByLabel('Usuario', { exact: true }).fill('demo.' + role)
   await page.getByLabel('Contraseña', { exact: true }).fill('fictitious-password')
   await page.getByRole('button', { name: 'Iniciar sesión' }).click()
+  if (role === 'admision') await page.getByRole('navigation', { name: 'Opciones de admisión' }).getByRole('button', { name: 'Reservar cita', exact: true }).click()
 }
 async function fill(page: Page) {
   await page.getByRole('button', { name: 'Registrar nuevo paciente' }).click()

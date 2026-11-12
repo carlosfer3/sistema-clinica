@@ -16,17 +16,62 @@ test('admission reviews future portal requests and explicitly confirms them', as
   await expect(page.locator('.daily-table tbody tr').getByText('Pendiente de confirmación', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Registrar llegada', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Confirmar cita', exact: true }).click(); expect(writes).toBe(0)
+  const dialog = page.getByRole('dialog', { name: 'Confirmar solicitud del portal' })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByText('Por confirmar', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Confirmar solicitud', exact: true }).click()
   await expect(page.getByText('Cita confirmada por admisión.')).toBeVisible(); expect(writes).toBe(1)
+  await expect(dialog.getByRole('heading', { name: 'Solicitud confirmada', exact: true })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Volver a solicitudes' }).click()
+  await expect(dialog).toHaveCount(0)
 })
-async function login(page: Page) {
+async function login(page: Page, openDaily = true) {
   await page.clock.setFixedTime(new Date('2026-11-08T15:00:00Z'))
   await page.route('**/api/auth/login', route => route.fulfill({ json: { accessToken: 'test-token' } }))
   await page.route('**/api/auth/me', route => route.fulfill({ json: { id: 1, rol: 'admision' } }))
   await page.route('**/api/agenda/catalog', route => route.fulfill({ json: { especialidades: [] } }))
   await page.goto('/'); await page.getByLabel('Usuario', { exact: true }).fill('demo.admision'); await page.getByLabel('Contraseña', { exact: true }).fill('fictitious-password'); await page.getByRole('button', { name: 'Iniciar sesión' }).click()
-  await page.getByRole('button', { name: 'Citas del día', exact: true }).click()
+  if (openDaily) await page.getByRole('button', { name: 'Citas del día', exact: true }).click()
 }
+
+test('rejects only pending requests with an explicit reason and confirmation', async ({ page }) => {
+  let rejected = false; let writes = 0
+  await page.route('**/api/agenda/appointments?*', route => route.fulfill({ json: listing([
+    appointment,
+    ...(rejected ? [] : [{ ...appointment, id: 13, estado: 'pendiente_confirmacion' }]),
+  ]) }))
+  await page.route('**/api/agenda/appointments/13/reject', route => {
+    writes++
+    expect(route.request().postDataJSON()).toEqual({ motivo: 'Médico no disponible' })
+    rejected = true
+    return route.fulfill({ json: { id: 13, estado: 'cancelada' } })
+  })
+  await login(page)
+  await expect(page.getByRole('row', { name: 'Cita 12', exact: true }).getByRole('button', { name: 'Rechazar solicitud' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Rechazar solicitud', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Rechazar solicitud del portal' })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByText('0/300', { exact: true })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Confirmar rechazo' }).click()
+  await expect(dialog.getByRole('alert')).toHaveText('Escribe el motivo para rechazar la solicitud.')
+  await expect(dialog.getByLabel('Motivo del rechazo (obligatorio)')).toBeFocused()
+  await dialog.getByLabel('Motivo del rechazo (obligatorio)').fill('Médico no disponible')
+  await expect(dialog.getByText(`${'Médico no disponible'.length}/300`, { exact: true })).toBeVisible()
+  await expect(dialog.getByRole('alert')).toBeEmpty()
+  expect(writes).toBe(0)
+  await dialog.getByRole('button', { name: 'Volver', exact: true }).click()
+  expect(writes).toBe(0)
+  await page.getByRole('button', { name: 'Rechazar solicitud', exact: true }).click()
+  await dialog.getByLabel('Motivo del rechazo (obligatorio)').fill('Médico no disponible')
+  await dialog.getByRole('button', { name: 'Confirmar rechazo' }).click()
+  await expect(page.getByText('Solicitud rechazada. El turno quedó libre.', { exact: true })).toBeVisible()
+  await expect(dialog.getByRole('heading', { name: 'Solicitud rechazada', exact: true })).toBeVisible()
+  await expect(dialog.getByText('Rechazada', { exact: true })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Volver a solicitudes' }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Rechazar solicitud', exact: true })).toHaveCount(0)
+  expect(writes).toBe(1)
+})
 test('confirms arrival, refreshes the list and preserves appointment state', async ({ page }) => {
   let arrived = false; let writes = 0
   await page.route('**/api/agenda/appointments?*', route => route.fulfill({ json: listing([{ ...appointment, llegadaEn: arrived ? '2026-11-08T14:50:00Z' : null }]) }))
@@ -46,7 +91,7 @@ test('filters, paginates and handles an empty list', async ({ page }) => {
   await page.getByLabel('Estado de la cita').selectOption('cancelada'); await expect(page.getByText('Página 1')).toBeVisible()
 })
 test('expires the session when listing returns 401', async ({ page }) => {
-  await page.route('**/api/agenda/appointments?*', route => route.fulfill({ status: 401, json: {} })); await login(page); await expect(page.getByRole('button', { name: 'Iniciar sesión' })).toBeVisible()
+  await page.route('**/api/agenda/appointments?*', route => route.fulfill({ status: 401, json: {} })); await login(page, false); await expect(page.getByRole('button', { name: 'Iniciar sesión' })).toBeVisible()
 })
 test('does not retry an uncertain arrival and permits checking the list', async ({ page }) => {
   let writes = 0; await page.route('**/api/agenda/appointments?*', route => route.fulfill({ json: listing() }))

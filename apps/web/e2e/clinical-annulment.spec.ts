@@ -7,6 +7,7 @@ test('annuls an own clinical record only after entering a reason and confirming'
   await page.route('**/api/consultations', r => r.fulfill({ json: [{ id: 30, fechaHora: '2026-11-12T13:00:00Z', motivo: 'Control ficticio', estado: annulled ? 'anulado' : 'activo', motivoAnulacion: annulled ? 'Error de registro' : null, paciente: { nombres: 'Paciente', apellidos: 'Prueba', numeroDocumento: '87654321' } }] }))
   await page.route('**/api/consultations/30/annul', r => { writes++; expect(r.request().postDataJSON()).toEqual({ motivo: 'Error de registro' }); annulled = true; return r.fulfill({ json: { id: 30, estado: 'anulado' } }) })
   await page.goto('/'); await page.getByLabel('Usuario', { exact: true }).fill('demo.medico'); await page.getByLabel('Contraseña', { exact: true }).fill('fictitious-password'); await page.getByRole('button', { name: 'Iniciar sesión' }).click()
+  await page.getByRole('button', { name: 'Consultas registradas', exact: true }).click()
   await page.getByRole('button', { name: 'Anular consulta', exact: true }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Confirmar anulación' })).toBeDisabled()

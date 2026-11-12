@@ -287,6 +287,31 @@ describe('Reservations (HTTP, mocked database)', () => {
     actor.mockResolvedValue({ id: 7, rol: 'paciente', activo: true });
     await change('confirm').expect(403);
   });
+  it('rejects pending portal requests and audits the trimmed reason', async () => {
+    const original = await find();
+    find.mockResolvedValue({ ...original, canalOrigen: 'portal', estado: 'pendiente_confirmacion' });
+    await change('reject', { motivo: '  Médico no disponible  ' }).expect(200);
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ data: { estado: 'cancelada' } }));
+    expect(audit).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      accion: 'REJECT_CITA', usuarioId: 7,
+      detalles: JSON.stringify({ estadoAnterior: 'pendiente_confirmacion', motivoRechazo: 'Médico no disponible' }),
+    }) }));
+  });
+  it.each(['programada', 'confirmada', 'reprogramada', 'cancelada', 'atendida', 'no_asistio'])('cannot reject a %s appointment', async (estado) => {
+    const original = await find();
+    find.mockResolvedValue({ ...original, canalOrigen: 'portal', estado });
+    await change('reject', { motivo: 'No disponible' }).expect(409);
+    expect(update).not.toHaveBeenCalled();
+    expect(audit).not.toHaveBeenCalled();
+  });
+  it('validates rejection reasons and restricts rejection to admission', async () => {
+    for (const data of [{}, { motivo: '' }, { motivo: '   ' }, { motivo: 'x'.repeat(301) }, { motivo: 'Razón', estado: 'cancelada' }]) {
+      await change('reject', data).expect(400);
+    }
+    actor.mockResolvedValue({ id: 7, rol: 'paciente', activo: true });
+    await change('reject', { motivo: 'Razón' }).expect(403);
+    expect(update).not.toHaveBeenCalled();
+  });
   it('does not permit arrival while a portal request awaits confirmation', async () => {
     const original = await find();
     find.mockResolvedValue({

@@ -3,17 +3,16 @@ import { Cashier } from './Cashier'
 import { PatientPortal } from './PatientPortal'
 import { Medical } from './Medical'
 import { Nursing } from './Nursing'
-import { DailyAppointments } from './DailyAppointments'
+import { Admission } from './Admission'
 import { useCallback, useEffect, useState } from 'react'
-import { Agenda } from './Agenda'
 import { Login } from './Login'
 import type { Session } from './api'
 import { api } from './api'
 import './App.css'
+import './Typography.css'
 
 function App() {
   const patientAccess = /^\/pacientes(?:\/login)?\/?$/.test(window.location.pathname)
-  const [view, setView] = useState<'booking' | 'daily'>('booking')
   const [session, updateSession] = useState<Session | null>(null)
   const [storedToken] = useState(() => {
     if (patientAccess) return null
@@ -49,6 +48,7 @@ function App() {
   if (restoring) return <main><p role="status">Restaurando sesión…</p></main>
   if (!session && patientAccess) return <PatientLogin expired={expired} onLogin={value => { setExpired(false); setSession(value) }} />
   if (session?.user.rol === 'paciente') return <PatientPortal session={session} onExpired={onExpired} onLogout={() => { setSession(null); setExpired(false) }} />
+  if (session?.user.rol === 'admision') return <Admission session={session} onExpired={onExpired} onLogout={() => { setSession(null); setExpired(false) }} />
   return (
     <div className="app">
       <header className="topbar">
@@ -62,7 +62,7 @@ function App() {
         </div>
       </header>
       <main>
-        {!session ? <>{expired && <p role="alert" className="notice error">Tu sesión venció o perdió acceso. Inicia sesión nuevamente.</p>}<Login onLogin={value => { setExpired(false); setView('booking'); setSession(value) }} /></> : session.user.rol === 'cajero' ? <Cashier session={session} onExpired={onExpired} onBusyChange={setBooking} /> : session.user.rol === 'medico' ? <Medical session={session} onExpired={onExpired} onBusyChange={setBooking} /> : session.user.rol === 'enfermeria' ? <Nursing session={session} onExpired={onExpired} onBusyChange={setBooking} /> : <><nav className="admission-navigation" aria-label="Opciones de admisión"><button className="secondary" aria-pressed={view === 'booking'} disabled={booking} onClick={() => setView('booking')}>Reservar cita</button><button className="secondary" aria-pressed={view === 'daily'} disabled={booking} onClick={() => setView('daily')}>Citas del día</button></nav>{view === 'booking' ? <Agenda session={session} onExpired={onExpired} onBookingChange={setBooking} /> : <DailyAppointments session={session} onExpired={onExpired} onBusyChange={setBooking} />}</>}
+        {!session ? <>{expired && <p role="alert" className="notice error">Tu sesión venció o perdió acceso. Inicia sesión nuevamente.</p>}<Login onLogin={value => { setExpired(false); setSession(value) }} /></> : session.user.rol === 'cajero' ? <Cashier session={session} onExpired={onExpired} onBusyChange={setBooking} /> : session.user.rol === 'medico' ? <Medical session={session} onExpired={onExpired} onBusyChange={setBooking} /> : session.user.rol === 'enfermeria' ? <Nursing session={session} onExpired={onExpired} onBusyChange={setBooking} /> : <p>Tu cuenta no tiene un m?dulo habilitado.</p>}
       </main>
       <footer>SIGES SR · Clínica San Rafael<span>Uso exclusivo del personal autorizado</span></footer>
     </div>

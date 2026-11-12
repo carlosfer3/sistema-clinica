@@ -1,0 +1,122 @@
+.admission-app { min-height: 100dvh; background: #f2f8fc; color: #4c6d80; }
+.admission-sidebar { position: fixed; inset: 0 auto 0 0; width: 264px; background: #fff; border-right: 1px solid #dcecf5; display: flex; flex-direction: column; z-index: 10; }
+.admission-brand { display: flex; align-items: center; gap: 10px; min-height: 96px; padding: 22px 20px; background: #edf7fc; color: #12456b; text-decoration: none; font-size: 1rem; font-weight: 750; }
+.admission-brand img { width: 46px; height: 44px; object-fit: contain; }
+.admission-brand small { display: block; margin-top: 5px; font-size: .58rem; letter-spacing: .09em; font-weight: 600; color: #5a778b; }
+.admission-sidebar nav { display: grid; gap: 7px; padding: 24px 14px; }
+.admission-sidebar nav button { display: flex; align-items: center; gap: 12px; text-align: left; min-height: 48px; padding: 12px; background: transparent; color: #5a778b; border-radius: 10px; font-size: .85rem; }
+.admission-sidebar nav button:hover:not(:disabled) { background: #edf7fc; color: #12456b; }
+.admission-sidebar nav button[aria-current="page"] { background: #12456b; color: #fff; box-shadow: 0 4px 12px #12456b1f; }
+.admission-sidebar nav svg { flex: none; }
+.admission-nav-count { margin-left: auto; padding: 2px 7px; border-radius: 20px; background: #e1f5fc; color: #17658d; font-size: .72rem; }
+.admission-sidebar-note { margin: auto 18px 24px; padding: 16px; border-radius: 12px; background: #edf7fc; font-size: .78rem; }
+.admission-sidebar-note svg { color: #0789c4; margin-bottom: 8px; }
+.admission-sidebar-note strong { display: block; color: #245773; }
+.admission-sidebar-note p { margin: 6px 0 12px; line-height: 1.5; }
+.admission-sidebar-note small { font-size: .65rem; color: #627b89; }
+.admission-workspace { margin-left: 264px; min-height: 100dvh; display: flex; flex-direction: column; }
+.admission-topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 32px; min-height: 96px; background: #fff; border-bottom: 1px solid #dcecf5; }
+.admission-topbar strong { display: block; font-size: .88rem; color: #12456b; }
+.admission-topbar > div > span { display: block; margin-top: 5px; font-size: .73rem; }
+.admission-account { display: flex; align-items: center; gap: 14px; }
+main.admission-main, main.admission-main:has(.daily-appointments) { width: 100%; max-width: 1600px; padding: 32px; margin: 0 auto; flex: 1; min-width: 0; }
+.admission-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.admission-heading .eyebrow { margin: 0 0 8px; font-size: .64rem; }
+.admission-heading h1 { font-size: clamp(1.5rem, 2.2vw, 2rem); letter-spacing: -.035em; margin: 0 0 10px; }
+.admission-heading p:last-child { font-size: .87rem; margin: 0; max-width: 640px; }
+.admission-heading > button { display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }
+.admission-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 28px; }
+.admission-kpi { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 20px; border: 1px solid #e1edf4; border-radius: 14px; background: #fff; text-align: left; box-shadow: 0 3px 12px #12456b04; }
+.admission-kpi:hover { border-color: #83cbe9; }
+.admission-kpi > span { min-width: 0; }
+.admission-kpi small { display: block; color: #5a778b; text-transform: uppercase; letter-spacing: .055em; font-size: .61rem; }
+.admission-kpi strong { display: block; color: #12456b; font-size: 2rem; line-height: 1.2; margin: 9px 0 6px; }
+.admission-kpi span span { display: block; color: #627b89; font-size: .66rem; line-height: 1.4; font-weight: 400; }
+.admission-kpi i { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 11px; background: #edf7fc; color: #0789c4; }
+.admission-home-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); align-items: start; gap: 24px; }
+.admission-panel { min-width: 0; padding: 22px; border: 1px solid #e1edf4; border-radius: 16px; background: #fff; box-shadow: 0 3px 12px #12456b04; }
+.admission-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.admission-panel h2 { font-size: 1rem; letter-spacing: -.02em; }
+.admission-panel-heading h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.admission-panel-heading svg { flex: none; color: #0789c4; }
+.admission-panel-tag { padding: 4px 8px; border-radius: 20px; background: #edf7fc; color: #17658d; font-size: .65rem; white-space: nowrap; }
+.admission-panel-help { margin: 12px 0 18px; font-size: .77rem; line-height: 1.5; color: #627b89; }
+.admission-preview-list { display: grid; gap: 12px; }
+.admission-patient-card { padding: 15px; background: #f5faff; border: 1px solid #e1edf4; border-radius: 12px; }
+.admission-patient-top { display: flex; align-items: center; gap: 10px; }
+.admission-initials { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 50%; background: #dfeff9; color: #12456b; font-weight: 700; font-size: .8rem; }
+.admission-patient-top > div { min-width: 0; flex: 1; }
+.admission-patient-top h3 { margin: 0 0 3px; font-weight: 700; font-size: .8rem; color: #244e66; overflow-wrap: anywhere; }
+.admission-patient-top small { display: block; color: #627b89; font-size: .65rem; }
+.admission-patient-top time { flex: none; color: #12456b; font-weight: 700; font-size: .82rem; text-align: right; }
+.admission-patient-detail { display: grid; gap: 4px; padding: 11px 0; margin-top: 8px; font-size: .72rem; }
+.admission-patient-detail strong { color: #17658d; }
+.admission-patient-bottom { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px solid #dfecf4; }
+.admission-status { border-radius: 20px; padding: 4px 8px; color: #17658d; background: #e1f5fc; font-size: .64rem; font-weight: 600; }
+.admission-status.arrived { color: #155b43; background: #e8f5ee; }
+.admission-patient-bottom button { color: #17658d; font-size: .7rem; text-decoration: none; }
+.admission-panel-open { margin-top: 18px; width: 100%; font-size: .78rem; }
+.admission-empty { display: grid; justify-items: center; padding: 35px 12px; text-align: center; color: #627b89; }
+.admission-empty svg { color: #0789c4; margin-bottom: 12px; }
+.admission-empty strong { color: #245773; font-size: .85rem; }
+.admission-empty p { margin: 6px 0 0; font-size: .75rem; }
+.admission-booking-banner { display: flex; align-items: center; gap: 16px; margin-top: 24px; padding: 22px; border: 1px solid #cde7f4; border-radius: 16px; background: #e8f4fc; }
+.admission-banner-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; flex: none; color: #fff; background: #12456b; }
+.admission-booking-banner h2 { font-size: 1rem; margin: 0 0 5px; }
+.admission-booking-banner p { font-size: .77rem; margin: 0; }
+.admission-booking-banner button { margin-left: auto; white-space: nowrap; }
+.admission-refresh { margin-top: 20px; font-size: .75rem; }
+.admission-app footer { padding: 20px 32px; font-size: .68rem; }
+.admission-app .page-heading h1 { font-size: 1.8rem; }
+.admission-app .page-heading p { font-size: .9rem; }
+.admission-app .daily-toolbar { flex-wrap: wrap; }
+.admission-app .daily-toolbar > div { min-width: 160px; }
+.admission-app .daily-table { min-width: 950px; }
+.admission-directory-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.admission-directory-filters { display: flex; flex-direction: row; align-items: end; gap: 14px; flex-wrap: wrap; margin-bottom: 24px; }
+.admission-directory-filters > div { flex: 1; min-width: 200px; }
+.admission-directory-filters label { display: block; }
+.admission-directory-grid > div { display: grid; gap: 16px; }
+.admission-doctor { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; margin-top: 10px; background: #f5faff; color: #244e66; }
+.admission-doctor[aria-pressed="true"] { border-color: #0789c4; background: #e1f5fc; }
+.admission-doctor strong, .admission-doctor small { display: block; }
+.admission-doctor small { margin-top: 4px; font-size: .7rem; font-weight: 400; }
+.admission-directory-grid label { display: block; }
+.admission-directory-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.admission-directory-slots > div { display: grid; gap: 4px; padding: 12px; border-radius: 9px; background: #edf7fc; font-size: .8rem; }
+.admission-directory-slots span { font-size: .7rem; }
+@media (max-width: 1250px) {
+  .admission-sidebar { width: 230px; }
+  .admission-workspace { margin-left: 230px; }
+  main.admission-main, main.admission-main:has(.daily-appointments) { padding: 24px; }
+  .admission-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admission-heading { align-items: start; flex-direction: column; }
+  .admission-home-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .admission-sidebar { position: static; width: 100%; border-right: 0; }
+  .admission-brand { min-height: auto; padding: 16px 20px; }
+  .admission-sidebar nav { display: flex; overflow-x: auto; padding: 12px; gap: 8px; }
+  .admission-sidebar nav button { flex: none; white-space: nowrap; font-size: .75rem; min-height: 42px; padding: 10px; gap: 7px; }
+  .admission-sidebar nav svg { width: 18px; height: 18px; }
+  .admission-sidebar-note { display: none; }
+  .admission-workspace { margin-left: 0; }
+  .admission-topbar { min-height: auto; padding: 16px; gap: 10px; }
+  .admission-topbar > div > span { font-size: .65rem; }
+  .admission-account > .badge { display: none; }
+  .admission-account button { font-size: .75rem; padding: 9px; }
+  main.admission-main, main.admission-main:has(.daily-appointments) { padding: 24px 16px; }
+  .admission-kpis { gap: 10px; }
+  .admission-kpi { padding: 14px; }
+  .admission-kpi i { display: none; }
+  .admission-kpi small { font-size: .59rem; }
+  .admission-kpi strong { font-size: 1.8rem; }
+  .admission-panel { padding: 16px; }
+  .admission-panel h2 { font-size: .9rem; }
+  .admission-booking-banner { flex-wrap: wrap; padding: 18px; }
+  .admission-booking-banner > div { flex: 1; }
+  .admission-booking-banner button { width: 100%; }
+  .admission-directory-grid { grid-template-columns: minmax(0, 1fr); }
+  .admission-app .agenda-grid { grid-template-columns: minmax(0, 1fr); }
+  .admission-app footer { padding: 20px 16px; }
+}

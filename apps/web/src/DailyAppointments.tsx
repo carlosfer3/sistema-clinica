@@ -50,14 +50,18 @@ export function DailyAppointments({
   session,
   onExpired,
   onBusyChange,
+  portalOnly = false,
+  hidePortalToggle = false,
 }: {
   session: Session
   onExpired: () => void
   onBusyChange: (busy: boolean) => void
+  portalOnly?: boolean
+  hidePortalToggle?: boolean
 }) {
   const [listing, setListing] = useState<Listing | null>(null)
   const [page, setPage] = useState(1)
-  const [pendingPortal, setPendingPortal] = useState(false)
+  const [pendingPortal, setPendingPortal] = useState(portalOnly)
   const [state, setState] = useState('')
   const [date, setDate] = useState(today)
   const [revision, setRevision] = useState(0)
@@ -67,14 +71,23 @@ export function DailyAppointments({
   const [noticeIsError, setNoticeIsError] = useState(false)
   const [selected, setSelected] = useState<Appointment | null>(null)
   const [action, setAction] = useState<
-    'arrival' | 'cancel' | 'reschedule' | 'confirm'
+    'arrival' | 'cancel' | 'reschedule' | 'confirm' | 'reject'
   >('arrival')
   const [newDate, setNewDate] = useState(today)
   const [slots, setSlots] = useState<{ inicio: string; fin: string }[]>([])
   const [slot, setSlot] = useState('')
   const [rescheduleReason, setRescheduleReason] = useState('')
+  const [rejectionReason, setRejectionReason] = useState('')
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [confirmed, setConfirmed] = useState(false)
+  const [rejected, setRejected] = useState(false)
+  const [rejectionError, setRejectionError] = useState('')
+  const rejectionField = useRef<HTMLTextAreaElement>(null)
+  const confirmationDialog = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    if (selected && (action === 'confirm' || action === 'reject')) confirmationDialog.current?.showModal()
+  }, [selected, action])
   const lock = useRef(false)
   const mounted = useRef(true)
   useEffect(() => {
@@ -153,11 +166,15 @@ export function DailyAppointments({
   }, [selected, action, newDate, session.token, onExpired])
   function choose(
     appointment: Appointment,
-    nextAction: 'cancel' | 'reschedule' | 'confirm',
+    nextAction: 'cancel' | 'reschedule' | 'confirm' | 'reject',
   ) {
     if (selected?.id === appointment.id && action === nextAction) return
     setSelected(appointment)
+    setConfirmed(false)
+    setRejected(false)
+    setRejectionError('')
     setRescheduleReason('')
+    setRejectionReason('')
     setAction(nextAction)
     setNewDate(today())
     setSlot('')
@@ -169,6 +186,14 @@ export function DailyAppointments({
   }
   async function changeAppointment() {
     if (!selected || lock.current || (action === 'reschedule' && (!slot || !rescheduleReason.trim()))) return
+    if (action === 'reject') {
+      if (selected.estado !== 'pendiente_confirmacion' || rejected) return
+      if (!rejectionReason.trim()) {
+        setRejectionError('Escribe el motivo para rechazar la solicitud.')
+        rejectionField.current?.focus()
+        return
+      }
+    }
     lock.current = true
     setSaving(true)
     onBusyChange(true)
@@ -178,17 +203,24 @@ export function DailyAppointments({
     try {
       await api(`/agenda/appointments/${selected.id}/${action}`, {
         token: session.token,
-        body: action === 'reschedule' ? { inicio: slot, motivo: rescheduleReason.trim() } : {},
+        body: action === 'reschedule' ? { inicio: slot, motivo: rescheduleReason.trim() } : action === 'reject' ? { motivo: rejectionReason.trim() } : {},
       })
       if (!mounted.current) return
       setNotice(
-        action === 'confirm'
+        action === 'reject'
+          ? 'Solicitud rechazada. El turno quedó libre.'
+          : action === 'confirm'
           ? 'Cita confirmada por admisi\u00f3n.'
           : action === 'cancel'
             ? 'Cita cancelada. El turno quedó libre.'
             : `Cita reprogramada para ${newDate} a las ${time(slot)} (Lima).`,
       )
-      reload()
+      if (action === 'confirm' || action === 'reject') {
+        if (action === 'confirm') setConfirmed(true)
+        else setRejected(true)
+        setLoading(true)
+        setRevision((value) => value + 1)
+      } else reload()
     } catch (cause) {
       if (!mounted.current) return
       if (cause instanceof ApiError && cause.status === 401) {
@@ -286,7 +318,7 @@ export function DailyAppointments({
             : <>{listing ? `${listing.fecha} · ` : ''}Horario de Lima. Confirma la identidad del paciente antes de registrar su llegada.</>}
         </p>
       </div>
-      <button
+      {!portalOnly && !hidePortalToggle && <><button
         className="secondary"
         aria-pressed={pendingPortal}
         aria-describedby="portal-requests-help"
@@ -307,9 +339,9 @@ export function DailyAppointments({
         {pendingPortal
           ? 'Pulsa de nuevo para volver a las citas de la fecha seleccionada.'
           : 'Consulta las citas del portal pendientes de confirmar, incluidas las de fechas futuras.'}
-      </p>
+      </p></>}
       <div className="daily-toolbar">
-        <div>
+        {!portalOnly && <><div>
           <label htmlFor="daily-date">Fecha de las citas</label>
           <input
             id="daily-date"
@@ -351,6 +383,7 @@ export function DailyAppointments({
             ))}
           </select>
         </div>
+        </>}
         <button
           className="secondary"
           disabled={saving || loading || !date}
@@ -425,6 +458,7 @@ export function DailyAppointments({
                         <td data-label="Acciones">
                           <div className="daily-actions">
                             {isPending && <button className="primary" disabled={saving} onClick={() => choose(appointment, 'confirm')}>Confirmar cita</button>}
+                            {isPending && <button className="secondary" disabled={saving} onClick={() => choose(appointment, 'reject')}>Rechazar solicitud</button>}
                             {canRegisterArrival && <button className="primary" disabled={saving} onClick={() => { setSelected(appointment); setAction('arrival'); setNotice(''); setNoticeIsError(false); setError('') }}>Registrar llegada</button>}
                             {isConfirmed && !appointment.llegadaEn && <><button className="secondary" disabled={saving} onClick={() => choose(appointment, 'reschedule')}>Reprogramar</button><button className="secondary" disabled={saving} onClick={() => choose(appointment, 'cancel')}>Cancelar cita</button></>}
                           </div>
@@ -510,7 +544,89 @@ export function DailyAppointments({
           </section>
         </div>
       )}
-      {selected && action !== 'arrival' && action !== 'cancel' && (
+      {selected && action === 'reject' && (
+        <dialog ref={confirmationDialog} className="card portal-confirmation portal-rejection" aria-labelledby="portal-reject-title" onCancel={(event) => { event.preventDefault(); if (!saving) setSelected(null) }}>
+          <header className="portal-confirm-header">
+            <span className="portal-confirm-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M9 9l6 6M15 9l-6 6" /></svg>
+            </span>
+            <h2 id="portal-reject-title">Rechazar solicitud del portal</h2>
+            <span className={`portal-confirm-tag${rejected ? ' done' : ''}`}>{rejected ? 'Rechazada' : 'Por revisar'}</span>
+          </header>
+          <section className="portal-confirm-summary" aria-label="Resumen de la solicitud">
+            <div className="portal-confirm-patient">
+              <span className="portal-confirm-avatar" aria-hidden="true">{selected.paciente.nombres.charAt(0)}{selected.paciente.apellidos.charAt(0)}</span>
+              <div><strong>{selected.paciente.nombres} {selected.paciente.apellidos}</strong><span>Cita #{selected.id}</span></div>
+            </div>
+            <dl className="portal-confirm-meta">
+              <div><dt>Fecha y hora</dt><dd>{new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', dateStyle: 'short', timeStyle: 'short' }).format(new Date(selected.inicio))}</dd></div>
+              <div><dt>Médico</dt><dd>{selected.medico.nombres} {selected.medico.apellidos}</dd></div>
+            </dl>
+          </section>
+          {rejected ? (
+            <div className="portal-confirm-success" role="status" aria-live="polite">
+              <svg aria-hidden="true" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" /></svg>
+              <h3>Solicitud rechazada</h3>
+              <p>La solicitud de {selected.paciente.nombres} {selected.paciente.apellidos} fue cancelada y el turno del {new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', dateStyle: 'short', timeStyle: 'short' }).format(new Date(selected.inicio))} vuelve a estar disponible.</p>
+              <button className="secondary" onClick={() => setSelected(null)}>Volver a solicitudes</button>
+            </div>
+          ) : (
+            <form noValidate onSubmit={(event) => { event.preventDefault(); void changeAppointment() }}>
+              <p className="portal-reject-notice">
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l10 18H2z" /><path d="M12 10v4M12 17.5v.01" /></svg>
+                <span>La solicitud quedar? cancelada y el turno volver? a estar disponible.</span>
+              </p>
+              <div className="portal-reject-field">
+                <label htmlFor="rejection-reason">Motivo del rechazo <small>(obligatorio)</small></label>
+                <textarea ref={rejectionField} id="rejection-reason" required maxLength={300} rows={3} placeholder="Explica brevemente por qu? se rechaza la solicitud" aria-describedby="rejection-error rejection-count" aria-invalid={rejectionError ? true : undefined} value={rejectionReason} disabled={saving} onChange={(event) => { setRejectionReason(event.target.value); if (event.target.value.trim()) setRejectionError('') }} />
+                <div className="portal-reject-foot"><span id="rejection-error" role="alert">{rejectionError}</span><span id="rejection-count">{rejectionReason.length}/300</span></div>
+              </div>
+              <div className="portal-confirm-actions">
+                <button type="button" className="secondary" disabled={saving} onClick={() => setSelected(null)}>Volver</button>
+                <button type="submit" className="danger" disabled={saving}>{saving ? 'Rechazando?' : 'Confirmar rechazo'}</button>
+              </div>
+            </form>
+          )}
+        </dialog>
+      )}
+      {selected && action === 'confirm' && (
+        <dialog ref={confirmationDialog} className="card portal-confirmation" aria-labelledby="portal-confirm-title" onCancel={(event) => { event.preventDefault(); if (!saving) setSelected(null) }}>
+          <header className="portal-confirm-header">
+            <span className="portal-confirm-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" /><path d="M8.5 12l2.5 2.5L16 9.5" /></svg>
+            </span>
+            <h2 id="portal-confirm-title">Confirmar solicitud del portal</h2>
+            <span className={`portal-confirm-tag${confirmed ? ' done' : ''}`}>{confirmed ? 'Confirmada' : 'Por confirmar'}</span>
+          </header>
+          <section className="portal-confirm-summary" aria-label="Resumen de la solicitud">
+            <div className="portal-confirm-patient">
+              <span className="portal-confirm-avatar" aria-hidden="true">{selected.paciente.nombres.charAt(0)}{selected.paciente.apellidos.charAt(0)}</span>
+              <div><strong>{selected.paciente.nombres} {selected.paciente.apellidos}</strong><span>Cita #{selected.id}</span></div>
+            </div>
+            <dl className="portal-confirm-meta">
+              <div><dt>Fecha y hora</dt><dd>{new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', dateStyle: 'short', timeStyle: 'short' }).format(new Date(selected.inicio))}</dd></div>
+              <div><dt>Médico</dt><dd>{selected.medico.nombres} {selected.medico.apellidos}</dd></div>
+            </dl>
+          </section>
+          {confirmed ? (
+            <div className="portal-confirm-success" role="status" aria-live="polite">
+              <svg aria-hidden="true" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M7.5 12.5l3 3 6-6.5" /></svg>
+              <h3>Solicitud confirmada</h3>
+              <p>La atención de {selected.paciente.nombres} {selected.paciente.apellidos} quedó habilitada para el {new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', dateStyle: 'short', timeStyle: 'short' }).format(new Date(selected.inicio))}.</p>
+              <button className="secondary" onClick={() => setSelected(null)}>Volver a solicitudes</button>
+            </div>
+          ) : (
+            <>
+              <p className="portal-confirm-help">Confirma la solicitud del paciente para habilitar su atención en el horario indicado.</p>
+              <div className="portal-confirm-actions">
+                <button className="secondary" disabled={saving} onClick={() => setSelected(null)}>Volver</button>
+                <button className="primary" disabled={saving} onClick={() => void changeAppointment()}>{saving ? 'Confirmando…' : 'Confirmar solicitud'}</button>
+              </div>
+            </>
+          )}
+        </dialog>
+      )}
+      {selected && action === 'reschedule' && (
         <div className={action === 'reschedule' ? 'modal-backdrop' : undefined}>
         <section
           className={action === 'reschedule' ? 'card modal reschedule-modal' : 'card arrival-confirmation'}
@@ -519,11 +635,8 @@ export function DailyAppointments({
           aria-labelledby="change-title"
         >
           <h2 id="change-title">
-            {action === 'confirm'
-              ? 'Confirmar solicitud del portal'
-              : 'Reprogramar cita'}
+            Reprogramar cita
           </h2>
-          {action === 'reschedule' ? (
             <div className="reschedule-details">
               <div>
                 <p className="eyebrow">Paciente</p>
@@ -537,18 +650,6 @@ export function DailyAppointments({
                 <p className="small">Dr. {selected.medico.nombres} {selected.medico.apellidos}</p>
               </div>
             </div>
-          ) : (
-            <>
-              <p>{selected.paciente.nombres} {selected.paciente.apellidos} · Cita #{selected.id}</p>
-              <p>{new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', dateStyle: 'short', timeStyle: 'short' }).format(new Date(selected.inicio))} · {selected.medico.nombres} {selected.medico.apellidos}</p>
-            </>
-          )}
-          {action === 'confirm' ? (
-            <p>
-              Confirma la solicitud del paciente para habilitar su atención en
-              el horario indicado.
-            </p>
-          ) : (
             <div className="reschedule-form">
               <h3>Nueva programación</h3>
               <div className="reschedule-fields">
@@ -571,7 +672,6 @@ export function DailyAppointments({
               <label htmlFor="reschedule-reason">Motivo de la reprogramación (obligatorio)</label>
               <textarea id="reschedule-reason" required maxLength={300} rows={3} value={rescheduleReason} disabled={saving} onChange={event => setRescheduleReason(event.target.value)} />
             </div>
-          )}
           <div className="daily-pagination">
             <button
               className="secondary"
@@ -589,9 +689,7 @@ export function DailyAppointments({
             >
               {saving
                 ? 'Guardando cambio…'
-                : action === 'confirm'
-                  ? 'Confirmar solicitud'
-                  : 'Confirmar reprogramación'}
+                : 'Confirmar reprogramación'}
             </button>
           </div>
         </section>

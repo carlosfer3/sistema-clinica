@@ -1,5 +1,21 @@
 # Interfaz de admisión
 
+## Estación de enfermería
+
+Enfermería presenta una bandeja de pacientes pendientes y un formulario integrado, en columnas en escritorio y apilados en móvil. El formulario reemplaza el modal anterior de captura. La bandeja consulta seis pacientes por página; `GET /agenda/nursing-queue` admite `buscar` (nombre, apellido o documento, de 2 a 100 caracteres) y `especialidadId`. Los filtros se aplican en el servidor antes de paginar y la respuesta agrega las especialidades con pacientes pendientes del día. No se muestran contadores globales calculados a partir de la página visible.
+
+La selección muestra identidad, edad, cita, médico, especialidad, horario y llegada. La espera se calcula desde la llegada, sin presentarla como duración de triaje. Las mediciones se agrupan en tarjetas con las mismas unidades, límites y obligatoriedad del contrato anterior; peso y talla en centímetros siguen siendo opcionales. Los datos se guardan por el endpoint existente y permanecen disponibles al médico después del éxito confirmado.
+
+Si hay mediciones sin guardar, cambiar paciente, actualizar, aplicar filtros, paginar o volver a pendientes solicita descartar o seguir evaluando. Cancelar esa transición conserva los datos y la selección. El borrador permanece solo en memoria. Durante el envío se bloquean edición, selección, filtros, paginación y cierre de sesión. Se conservan el manejo de conflictos, datos corregibles tras un 400 y ausencia de reintentos automáticos ante resultados inciertos.
+
+No incorpora prioridades automáticas, clasificaciones de signos vitales, historial o alergias, dispositivos, llamado a pantalla, EPS, cubículos, cronómetro de atención ni histórico de evaluaciones.
+
+El portal abre en **Inicio**, con navegación lateral hacia **Citas del día**, **Solicitudes del portal**, **Reservar cita** y **Directorio médico**. En móvil la navegación se desplaza horizontalmente. El inicio muestra hasta cuatro citas por panel; las acciones completas permanecen en las bandejas correspondientes y conservan los modales de confirmación, rechazo, llegada y cambios.
+
+Los indicadores consultan `GET /api/agenda/admission-summary`, exclusivo de admisión y auditado: citas de hoy (todos los estados), llegadas registradas en las citas de hoy, citas presenciales habilitadas pendientes de llegada y solicitudes futuras del portal pendientes de confirmar. Los conteos se calculan sobre toda la base, en una transacción de lectura consistente, con límites de fecha de Lima. No dependen de la paginación de las bandejas. **Actualizar resumen** vuelve a consultar indicadores y paneles; los errores no se presentan como cero.
+
+El directorio consulta `GET /api/agenda/directory` con filtros por especialidad y/o nombre o apellido (mínimo dos caracteres). Al abrir muestra únicamente las especialidades, sin cargar médicos. Los resultados se paginan en el servidor, seis por página, con controles Anterior/Siguiente; cambiar filtros vuelve a la primera página y descarta la selección previa. La disponibilidad por profesional y fecha muestra horarios y consultorios sin reservarlos; la reserva se realiza desde **Reservar cita**. No incorpora EPS, sedes, ventanillas, impresoras ni datos clínicos.
+
 Desde `apps/web`, instalar dependencias con `npm.cmd ci`, copiar `.env.example` a `.env.local` y ejecutar `npm.cmd run dev`. `VITE_API_URL` apunta a la API con el prefijo `/api` (por defecto `http://localhost:3000/api`). El `CORS_ORIGIN` del backend debe coincidir con el origen de la web.
 
 El acceso usa `POST /api/auth/login` y comprueba el rol actual con `GET /api/auth/me`. La vista de admisión requiere `admision`; las cuentas `enfermeria` acceden a su propia pantalla de evaluación previa. El backend conserva sus propias restricciones. La sesión del personal se conserva en `sessionStorage` durante la pestaña y se revalida con la API al recargar. Cerrar sesión o recibir 401 elimina el token; no se guardan contraseñas. No hay recuperación de contraseña ni creación de cuentas desde esta pantalla.

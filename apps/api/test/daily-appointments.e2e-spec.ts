@@ -12,6 +12,10 @@ describe('Admission daily appointments (HTTP, mocked database)', () => {
   const actor = vi.fn();
   const findMany = vi.fn();
   const audit = vi.fn();
+  const count = vi.fn();
+  const directoryDoctors = vi.fn();
+  const directorySpecialties = vi.fn();
+  const transaction = vi.fn(async (queries: Promise<unknown>[]) => Promise.all(queries));
   const now = new Date('2026-11-09T02:00:00Z');
   const row = {
     id: 12,
@@ -43,7 +47,10 @@ describe('Admission daily appointments (HTTP, mocked database)', () => {
       .overrideProvider(PrismaService)
       .useValue({
         usuario: { findUnique: actor },
-        cita: { findMany },
+        cita: { findMany, count },
+        medico: { findMany: directoryDoctors },
+        especialidad: { findMany: directorySpecialties },
+        $transaction: transaction,
         bitacoraAuditoria: { create: audit },
       })
       .compile();
@@ -60,6 +67,9 @@ describe('Admission daily appointments (HTTP, mocked database)', () => {
     actor.mockResolvedValue({ id: 7, rol: 'admision', activo: true });
     findMany.mockResolvedValue([row]);
     audit.mockResolvedValue({ id: 1 });
+    count.mockResolvedValue(0);
+    directorySpecialties.mockResolvedValue([{ id: 1, nombre: 'General' }]);
+    directoryDoctors.mockResolvedValue([]);
   });
   afterEach(() => vi.restoreAllMocks());
   afterAll(async () => {
@@ -70,6 +80,37 @@ describe('Admission daily appointments (HTTP, mocked database)', () => {
       .get('/api/agenda/appointments')
       .expect(401);
     expect(findMany).not.toHaveBeenCalled();
+  });
+  it('returns full admission totals with Lima day boundaries and a consistent snapshot', async () => {
+    count.mockResolvedValueOnce(35).mockResolvedValueOnce(12).mockResolvedValueOnce(18).mockResolvedValueOnce(8);
+    const result = await request(app.getHttpServer()).get('/api/agenda/admission-summary').auth(token, { type: 'bearer' }).expect(200);
+    expect(result.body).toEqual({ fecha: '2026-11-08', zonaHoraria: 'America/Lima', citasHoy: 35, llegadasRegistradas: 12, pendientesLlegada: 18, solicitudesPendientes: 8 });
+    expect(count).toHaveBeenNthCalledWith(1, { where: { fechaHoraInicio: { gte: new Date('2026-11-08T05:00:00Z'), lt: new Date('2026-11-09T05:00:00Z') } } });
+    expect(count).toHaveBeenNthCalledWith(3, { where: expect.objectContaining({ modalidad: 'presencial', llegadaEn: null, estado: { in: ['programada', 'confirmada', 'reprogramada'] } }) });
+    expect(count).toHaveBeenNthCalledWith(4, { where: { fechaHoraInicio: { gt: now }, canalOrigen: 'portal', estado: 'pendiente_confirmacion' } });
+    expect(transaction).toHaveBeenCalledWith(expect.any(Array), { isolationLevel: 'RepeatableRead' });
+  });
+  it('restricts admission totals to admission staff', async () => {
+    await request(app.getHttpServer()).get('/api/agenda/admission-summary').expect(401);
+    actor.mockResolvedValue({ id: 7, rol: 'medico', activo: true });
+    await request(app.getHttpServer()).get('/api/agenda/admission-summary').auth(token, { type: 'bearer' }).expect(403);
+    expect(count).not.toHaveBeenCalled();
+  });
+  it('does not load doctors before filtering the directory', async () => {
+    const result = await request(app.getHttpServer()).get('/api/agenda/directory').auth(token, { type: 'bearer' }).expect(200);
+    expect(result.body.medicos).toEqual([]);
+    expect(directoryDoctors).not.toHaveBeenCalled();
+  });
+  it('filters and paginates doctors on the server', async () => {
+    directoryDoctors.mockResolvedValue(Array.from({ length: 7 }, (_, i) => ({ id: i + 1, usuario: { nombres: 'Ana', apellidos: 'Pérez' }, especialidad: { id: 1, nombre: 'General' } })));
+    const result = await request(app.getHttpServer()).get('/api/agenda/directory?especialidadId=1&buscar=Ana%20Perez&pagina=2&limite=6').auth(token, { type: 'bearer' }).expect(200);
+    expect(result.body.medicos).toHaveLength(6);
+    expect(result.body.hayMas).toBe(true);
+    expect(directoryDoctors).toHaveBeenCalledWith(expect.objectContaining({ skip: 6, take: 7, where: expect.objectContaining({ especialidadId: 1, AND: expect.any(Array) }) }));
+  });
+  it.each(['pagina=0', 'limite=101', 'especialidadId=abc', 'buscar=a'])('validates directory filters: %s', async query => {
+    await request(app.getHttpServer()).get(`/api/agenda/directory?${query}`).auth(token, { type: 'bearer' }).expect(400);
+    expect(directoryDoctors).not.toHaveBeenCalled();
   });
   it.each([
     'enfermeria',

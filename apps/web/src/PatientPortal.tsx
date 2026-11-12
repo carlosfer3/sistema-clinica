@@ -1,3 +1,6 @@
+import { AppointmentProgress } from './AppointmentProgress'
+import { PatientNotifications } from './PatientNotifications'
+import { PatientHistoryTimeline } from './PatientHistoryTimeline'
 import { PatientAlerts } from './PatientAlerts'
 import { PatientPayments } from './PatientPayments'
 import { useEffect, useId, useRef, useState } from 'react'
@@ -478,11 +481,19 @@ export function PatientPortal({
   const [page, setPage] = useState(1)
   const [scope, setScope] = useState('upcoming')
   const [revision, setRevision] = useState(0)
+  const [liveRevision, setLiveRevision] = useState(0)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [modal, setModal] = useState<Modal | null>(null)
   const lock = useRef(false)
+  useEffect(() => {
+    if (busy || (view !== 'home' && view !== 'appointments')) return
+    const refresh = () => { if (document.visibilityState === 'visible') setLiveRevision(v => v + 1) }
+    const timer = setInterval(refresh, 30000)
+    window.addEventListener('focus', refresh)
+    return () => { clearInterval(timer); window.removeEventListener('focus', refresh) }
+  }, [busy, view])
   const name = profile?.nombres.split(' ')[0] || ''
   useEffect(() => {
     const controller = new AbortController()
@@ -508,8 +519,8 @@ export function PatientPortal({
   }, [session.token, onExpired, revision])
   useEffect(() => {
     const controller = new AbortController()
-    if (view === 'payments') return () => controller.abort()
-    const clinical = view === 'history' || view === 'prescriptions'
+    if (view === 'payments' || view === 'history') return () => controller.abort()
+    const clinical = view === 'prescriptions'
     const params = new URLSearchParams({
       pagina: String(view === 'home' ? 1 : page),
       limite: view === 'home' ? '2' : '10',
@@ -543,7 +554,7 @@ export function PatientPortal({
     }
     void read()
     return () => controller.abort()
-  }, [view, page, scope, revision, session.token, onExpired])
+  }, [view, page, scope, revision, liveRevision, session.token, onExpired])
   useEffect(() => {
     if (view !== 'home') return
     const controller = new AbortController()
@@ -833,13 +844,15 @@ export function PatientPortal({
               <h1>
                 {view === 'home'
                   ? `Hola${name ? `, ${name}` : ''}`
-                  : labels[view]}
+                  : view === 'history' ? 'Mi historial médico' : labels[view]}
               </h1>
               <p>
                 {view === 'home'
                   ? 'Tu salud, un día a la vez.'
                   : view === 'appointments'
                     ? 'Cada consulta, un paso para cuidarte.'
+                    : view === 'history'
+                      ? 'Consulta tus atenciones anteriores, diagnósticos, indicaciones y recetas registradas.'
                     : view === 'profile'
                       ? 'Tu información, siempre a mano.'
                       : 'Todo sobre tu atención, en un solo lugar.'}
@@ -879,12 +892,7 @@ export function PatientPortal({
                     <div className="pp-live-doctor-info"><small>Tu próxima atención</small><h2 id="pp-next-title">{next.especialidad.nombre} — {next.medico.nombres} {next.medico.apellidos}</h2><p><Icon name="pin" />Presencial · Clínica San Rafael</p></div>
                     <div className="pp-live-actions"><button className="pp-white-button" onClick={() => setModal({ kind: 'detail', appointment: next })}>Ver detalle</button>{changeable(next) && <button className="pp-outline-button" onClick={() => setModal({ kind: 'reschedule', appointment: next })}>Reprogramar</button>}</div>
                   </article>
-                  <div className="pp-care-flow"><h3>Flujo de tu atención</h3><ol>
-                    <li className={next.estado !== 'pendiente_confirmacion' ? 'pp-flow-done' : ''}><span>{next.estado !== 'pendiente_confirmacion' ? '✓' : '1'}</span><div><strong>1. Cita confirmada</strong><small>{next.estado === 'pendiente_confirmacion' ? 'Pendiente de admisión' : 'Cupo reservado'}</small></div></li>
-                    <li className={next.llegadaEn ? 'pp-flow-done' : ''}><span>{next.llegadaEn ? '✓' : '2'}</span><div><strong>2. Registro de llegada</strong><small>{next.llegadaEn ? `${clock(next.llegadaEn)} h · Admisión` : 'Pendiente de llegada'}</small></div></li>
-                    <li className={next.preparacionCompletadaEn ? 'pp-flow-done' : ''}><span>{next.preparacionCompletadaEn ? '✓' : '3'}</span><div><strong>3. Triaje asistencial</strong><small>{next.preparacionCompletadaEn ? 'Completado' : 'Pendiente de enfermería'}</small></div></li>
-                    <li><span>4</span><div><strong>4. Consulta médica</strong><small>Pendiente de atención</small></div></li>
-                  </ol></div>
+                  <AppointmentProgress appointment={next} />
                 </> : <><h2 id="pp-next-title">Aún no tienes próximas citas</h2><p>Cuando programes una consulta, encontrarás aquí todos sus detalles.</p></>}
               </section>
               <div className="pp-home-columns">
@@ -946,99 +954,18 @@ export function PatientPortal({
               </div>
             </section>
           )}
-          {(view === 'history' || view === 'prescriptions') && (
-            <section>
-              {!history ? (
-                <p role="status">
-                  {error
-                    ? 'No se pudo cargar tu información.'
-                    : 'Cargando tu información…'}
-                </p>
-              ) : (
-                <>
-                  {(view === 'history'
-                    ? history.consultas
-                    : history.consultas.filter(
-                        (c) => c.estado === 'activo' && c.recetaItems.length,
-                      )
-                  ).map((c) => (
-                    <article className="pp-history-card" key={c.id}>
-                      <div className="pp-section-heading">
-                        <h2>{c.medico.especialidad.nombre}</h2>
-                        <span>
-                          {date(c.fechaHora, { dateStyle: 'medium' })}
-                        </span>
-                      </div>
-                      <p>
-                        {c.medico.usuario.nombres} {c.medico.usuario.apellidos}
-                      </p>
-                      {c.estado === 'anulado' ? (
-                        <p className="pp-message">
-                          Consulta anulada · {c.motivoAnulacion}
-                        </p>
-                      ) : view === 'history' ? (
-                        <>
-                          <h3>Motivo de consulta</h3>
-                          <p>{c.motivo}</p>
-                          <h3>Diagnósticos</h3>
-                          {c.diagnosticos.map((d) => (
-                            <p key={d.codigo}>
-                              {d.codigo} · {d.descripcion}
-                            </p>
-                          ))}
-                          {c.indicaciones && (
-                            <>
-                              <h3>Indicaciones</h3>
-                              <p>{c.indicaciones}</p>
-                            </>
-                          )}
-                        </>
-                      ) : (
-                        c.recetaItems.map((r) => (
-                          <div className="pp-prescription" key={r.id}>
-                            <h3>{r.medicamento}</h3>
-                            <dl>
-                              <div>
-                                <dt>Dosis</dt>
-                                <dd>{r.dosis}</dd>
-                              </div>
-                              <div>
-                                <dt>Vía</dt>
-                                <dd>{r.via}</dd>
-                              </div>
-                              <div>
-                                <dt>Frecuencia</dt>
-                                <dd>{r.frecuencia}</dd>
-                              </div>
-                              <div>
-                                <dt>Duración</dt>
-                                <dd>{r.duracion}</dd>
-                              </div>
-                            </dl>
-                            {r.indicaciones && <p>{r.indicaciones}</p>}
-                          </div>
-                        ))
-                      )}
-                    </article>
-                  ))}
-                  {!(
-                    view === 'history'
-                      ? history.consultas
-                      : history.consultas.filter(
-                          (c) => c.estado === 'activo' && c.recetaItems.length,
-                        )
-                  ).length && (
-                    <div className="pp-empty">
-                      {view === 'history'
-                        ? 'Todavía no tienes consultas registradas.'
-                        : 'No hay recetas registradas en esta página de consultas.'}
-                    </div>
-                  )}
-                  {pagination(history.hayMas)}
-                </>
-              )}
-            </section>
-          )}
+          {view === 'history' && <PatientHistoryTimeline session={session} profile={profile} onExpired={onExpired} refreshRevision={revision} onHelp={() => setModal({ kind: 'help' })} />}
+          {view === 'prescriptions' && <section>
+            {!history ? <p role="status">{error ? 'No se pudo cargar tu información.' : 'Cargando tu información…'}</p> : <>
+              {history.consultas.filter(c => c.estado === 'activo' && c.recetaItems.length).map(c => <article className="pp-history-card" key={c.id}>
+                <div className="pp-section-heading"><h2>{c.medico.especialidad.nombre}</h2><span>{date(c.fechaHora, { dateStyle: 'medium' })}</span></div>
+                <p>{c.medico.usuario.nombres} {c.medico.usuario.apellidos}</p>
+                {c.recetaItems.map(r => <div className="pp-prescription" key={r.id}><h3>{r.medicamento}</h3><dl>{[['Dosis', r.dosis], ['Vía', r.via], ['Frecuencia', r.frecuencia], ['Duración', r.duracion]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>{r.indicaciones && <p>{r.indicaciones}</p>}</div>)}
+              </article>)}
+              {!history.consultas.some(c => c.estado === 'activo' && c.recetaItems.length) && <div className="pp-empty">No hay recetas registradas en esta página de consultas.</div>}
+              {pagination(history.hayMas)}
+            </>}
+          </section>}
           {view === 'payments' && (
             <PatientPayments session={session} onExpired={onExpired} />
           )}
@@ -1140,6 +1067,7 @@ export function PatientPortal({
                 <div><Icon name="pin" /><div><dt>Lugar</dt><dd>Clínica San Rafael</dd></div></div>
                 <div><Icon name="calendar" /><div><dt>Modalidad</dt><dd>{modal.appointment.modalidad === 'presencial' ? 'Presencial' : 'Consulta virtual'}</dd></div></div>
               </dl>
+              {modal.kind === 'detail' && <AppointmentProgress appointment={modal.appointment} />}
               {modal.kind === 'cancel' ? (
                 <div className="pp-detail-confirm">
                   <p>
@@ -1208,7 +1136,7 @@ export function PatientPortal({
               personales, contacta a Clínica San Rafael.
             </p>
           )}
-          {modal.kind === 'notifications' && (
+          {modal.kind === 'notifications' && (<><PatientNotifications session={session} onExpired={onExpired} onAppointments={() => { setModal(null); navigate('appointments') }} />
             <PatientAlerts
               session={session}
               appointments={appointments?.citas ?? null}
@@ -1225,7 +1153,7 @@ export function PatientPortal({
                 setModal(null)
                 navigate('prescriptions')
               }}
-            />
+            /></>
           )}
         </Dialog>
       )}

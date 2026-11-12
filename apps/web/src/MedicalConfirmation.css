@@ -1,0 +1,33 @@
+dialog.medical-confirmation { position: fixed; inset: 0; width: min(500px, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); margin: auto; padding: 0; overflow-y: auto; border: 1px solid #cde7f4; border-radius: 20px; background: #fff; color: #244e66; box-shadow: 0 18px 44px rgb(9 51 77 / .24); }
+.medical-confirmation::backdrop { background: rgb(11 49 73 / .48); }
+.medical-confirm-top { display: flex; align-items: center; gap: 12px; padding: 20px 24px; border-bottom: 1px solid #d9edf6; }
+.medical-confirm-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 12px; background: #e1f5fc; color: #0789c4; }
+.medical-confirm-top h2 { flex: 1; margin: 0; font-size: 1.2rem; line-height: 1.25; letter-spacing: normal; }
+.medical-confirm-tag { flex: none; padding: 4px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; white-space: nowrap; background: #fff1d6; color: #9a5b00; }
+.medical-confirm-tag.done { background: #e8f5ee; color: #155b43; }
+.medical-confirm-patient { display: flex; align-items: center; gap: 12px; margin: 20px 24px 0; }
+.medical-confirm-avatar { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 50%; background: #0789c4; color: #fff; font-weight: 700; }
+.medical-confirm-patient > div { min-width: 0; overflow-wrap: anywhere; }
+.medical-confirm-patient strong { display: block; color: #12456b; font-size: 1.05rem; }
+.medical-confirm-patient div span { color: #627b89; font-size: .9rem; }
+.medical-confirm-record { margin: 16px 24px 0; border: 1px solid #d9edf6; border-radius: 14px; overflow: hidden; }
+.medical-confirm-record > div { padding: 14px 16px; border-bottom: 1px solid #d9edf6; }
+.medical-confirm-record > div:last-child { border-bottom: 0; }
+.medical-confirm-record dt { color: #627b89; margin-bottom: 4px; font-size: .85rem; }
+.medical-confirm-record dd { margin: 0; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.medical-confirm-diagnoses { display: grid; gap: 8px; }
+.medical-confirm-chip { display: block; padding: 6px 10px; border-radius: 8px; background: #e1f5fc; color: #17658d; font-size: .85rem; }
+.medical-confirm-chip small { display: block; margin-top: 3px; font-size: .72rem; }
+.medical-confirm-empty { display: inline-block; padding: 3px 10px; border-radius: 8px; background: #eef3f6; color: #627b89; font-weight: 700; }
+.medical-confirm-prescription { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.medical-confirm-prescription li { display: grid; gap: 4px; font-size: .88rem; }
+.medical-confirm-warning { display: flex; gap: 10px; margin: 16px 24px 0; padding: 12px 14px; border-radius: 12px; background: #fff1d6; color: #9a5b00; line-height: 1.45; }
+.medical-confirm-warning svg { flex: none; margin-top: 2px; }
+.medical-confirm-actions { display: flex; gap: 10px; padding: 20px 24px 24px; }
+.medical-confirm-actions button { flex: 1; border-radius: 10px; padding: 12px 14px; }
+.medical-confirm-success { padding: 16px 24px 24px; text-align: center; }
+.medical-confirm-success svg { color: #087e64; margin: 8px auto; }
+.medical-confirm-success h3 { margin: 0 0 6px; color: #12456b; font-size: 1.15rem; font-weight: 700; }
+.medical-confirm-success p { margin: 0 0 18px; color: #627b89; line-height: 1.5; }
+.medical-confirm-success button { width: 100%; }
+@media (max-width: 460px) { .medical-confirm-top { flex-wrap: wrap; } .medical-confirm-actions { flex-direction: column-reverse; } }

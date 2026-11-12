@@ -1,6 +1,8 @@
 import { DailyAppointmentsDto } from './daily-appointments.dto.js';
+import { DirectoryDto } from './directory.dto.js';
 import { VitalSignsDto } from './vital-signs.dto.js';
 import { NursingQueueDto } from './nursing-queue.dto.js';
+import { NursingWorklistDto } from './nursing-worklist.dto.js';
 import {
   BadRequestException,
   ConflictException,
@@ -18,6 +20,44 @@ export class AgendaService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
   ) {}
+
+  async admissionSummary(actorId: number, ip?: string) {
+    const now = new Date(Date.now());
+    const fecha = new Date(now.getTime() - 5 * 3600000).toISOString().slice(0, 10);
+    const start = new Date(`${fecha}T00:00:00-05:00`);
+    const day = { gte: start, lt: new Date(start.getTime() + 86400000) };
+    await this.audit.record(actorId, 'READ_ADMISSION_SUMMARY', 'agenda/admission-summary', ip);
+    const [citasHoy, llegadasRegistradas, pendientesLlegada, solicitudesPendientes] = await this.prisma.$transaction([
+      this.prisma.cita.count({ where: { fechaHoraInicio: day } }),
+      this.prisma.cita.count({ where: { fechaHoraInicio: day, llegadaEn: { not: null } } }),
+      this.prisma.cita.count({ where: { fechaHoraInicio: day, modalidad: 'presencial', estado: { in: ['programada', 'confirmada', 'reprogramada'] }, llegadaEn: null } }),
+      this.prisma.cita.count({ where: { fechaHoraInicio: { gt: now }, canalOrigen: 'portal', estado: 'pendiente_confirmacion' } }),
+    ], { isolationLevel: 'RepeatableRead' });
+    return { fecha, zonaHoraria: 'America/Lima', citasHoy, llegadasRegistradas, pendientesLlegada, solicitudesPendientes };
+  }
+
+  async directory(query: DirectoryDto, actorId: number, ip?: string) {
+    await this.audit.record(actorId, 'READ_MEDICAL_DIRECTORY', 'agenda/directory', ip);
+    const eligible = { usuario: { activo: true, rol: 'medico' as const }, horarios: { some: { consultorio: { activo: true } } } };
+    const especialidades = await this.prisma.especialidad.findMany({
+      where: { medicos: { some: eligible } }, select: { id: true, nombre: true }, orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
+    });
+    const rows = !query.especialidadId && !query.buscar ? [] : await this.prisma.medico.findMany({
+      where: {
+        ...eligible,
+        especialidadId: query.especialidadId,
+        ...(query.buscar ? { AND: query.buscar.split(/\s+/).map(word => ({ OR: [
+          { usuario: { nombres: { contains: word, mode: 'insensitive' as const } } },
+          { usuario: { apellidos: { contains: word, mode: 'insensitive' as const } } },
+        ] })) } : {}),
+      },
+      select: { id: true, usuario: { select: { nombres: true, apellidos: true } }, especialidad: { select: { id: true, nombre: true } } },
+      orderBy: [{ usuario: { apellidos: 'asc' } }, { usuario: { nombres: 'asc' } }, { id: 'asc' }],
+      skip: (query.pagina - 1) * query.limite,
+      take: query.limite + 1,
+    });
+    return { especialidades, pagina: query.pagina, limite: query.limite, hayMas: rows.length > query.limite, medicos: rows.slice(0, query.limite).map(row => ({ id: row.id, ...row.usuario, especialidad: row.especialidad })) };
+  }
 
   async catalog(actorId: number, ip?: string) {
     await this.audit.record(
@@ -304,6 +344,37 @@ export class AgendaService {
       },
       { isolationLevel: 'ReadCommitted' },
     );
+  }
+
+  async reject(id: number, reason: string, actorId: number, ip?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM cita WHERE id = ${id} FOR UPDATE`;
+      const appointment = await tx.cita.findUnique({
+        where: { id },
+        include: {
+          consulta: { select: { id: true } },
+          evaluacionPrevia: { select: { id: true } },
+        },
+      });
+      if (!appointment) throw new NotFoundException('Appointment not found');
+      if (appointment.canalOrigen !== 'portal' || appointment.estado !== 'pendiente_confirmacion' ||
+          appointment.llegadaEn || appointment.preparacionCompletadaEn || appointment.consulta || appointment.evaluacionPrevia) {
+        throw new ConflictException('Only pending portal requests can be rejected');
+      }
+      const result = await tx.cita.update({
+        where: { id },
+        data: { estado: 'cancelada' },
+        select: { id: true, pacienteId: true, medicoId: true, fechaHoraInicio: true, fechaHoraFin: true, estado: true, canalOrigen: true, modalidad: true },
+      });
+      await tx.bitacoraAuditoria.create({ data: {
+        usuarioId: actorId,
+        accion: 'REJECT_CITA',
+        recurso: `agenda/appointments/${id}`,
+        detalles: JSON.stringify({ estadoAnterior: appointment.estado, motivoRechazo: reason.trim() }),
+        ipOrigen: ip,
+      } });
+      return result;
+    }, { isolationLevel: 'ReadCommitted' });
   }
 
   async confirm(id: number, actorId: number, ip?: string) {
@@ -611,7 +682,7 @@ export class AgendaService {
     };
   }
 
-  async nursingQueue(query: NursingQueueDto, actorId: number, ip?: string) {
+  async nursingQueue(query: NursingWorklistDto, actorId: number, ip?: string) {
     const today = new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
     const dayStart = new Date(`${today}T00:00:00-05:00`);
     const dayEnd = new Date(dayStart.getTime() + 86400000);
@@ -621,13 +692,24 @@ export class AgendaService {
       'agenda/nursing-queue',
       ip,
     );
+    const baseWhere: import('@prisma/client').Prisma.CitaWhereInput = {
+      fechaHoraInicio: { gte: dayStart, lt: dayEnd },
+      llegadaEn: { not: null }, preparacionCompletadaEn: null,
+      modalidad: 'presencial', estado: { in: ['programada', 'confirmada', 'reprogramada'] },
+    };
+    const especialidades = await this.prisma.especialidad.findMany({
+      where: { medicos: { some: { citas: { some: baseWhere } } } },
+      select: { id: true, nombre: true }, orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
+    });
     const appointments = await this.prisma.cita.findMany({
       where: {
-        fechaHoraInicio: { gte: dayStart, lt: dayEnd },
-        llegadaEn: { not: null },
-        preparacionCompletadaEn: null,
-        modalidad: 'presencial',
-        estado: { in: ['programada', 'confirmada', 'reprogramada'] },
+        ...baseWhere,
+        ...(query.especialidadId ? { medico: { especialidadId: query.especialidadId } } : {}),
+        ...(query.buscar ? { AND: query.buscar.split(/\s+/).map(word => ({ paciente: { OR: [
+          { nombres: { contains: word, mode: 'insensitive' as const } },
+          { apellidos: { contains: word, mode: 'insensitive' as const } },
+          { numeroDocumento: { contains: word, mode: 'insensitive' as const } },
+        ] } })) } : {}),
       },
       select: {
         id: true,
@@ -657,6 +739,7 @@ export class AgendaService {
     });
     return {
       fecha: today,
+      especialidades,
       zonaHoraria: 'America/Lima',
       pagina: query.pagina,
       limite: query.limite,
