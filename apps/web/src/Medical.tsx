@@ -3,6 +3,7 @@ import type { SubmitEvent } from 'react'
 import { api, ApiError } from './api'
 import type { Session } from './api'
 import { PatientHistory } from './PatientHistory'
+import { ClinicalAnnulments } from './ClinicalAnnulments'
 
 type Appointment = { citaId: number; inicio: string; paciente: { id: number; nombres: string; apellidos: string; tipoDocumento: string; numeroDocumento: string; edad: number }; especialidad: { nombre: string } }
 type Queue = { fecha: string; pacientes: Appointment[]; hayMas: boolean }
@@ -49,6 +50,8 @@ export function Medical({ session, onExpired, onBusyChange }: { session: Session
     <div className="page-heading"><p className="eyebrow">Área médica</p><h1 id="medical-title">Atención médica</h1><p>{queue?.fecha} · Pacientes preparados para tu consulta. Horario de Lima.</p></div>
     {error && <p className="notice error" role="alert">{error}</p>}{notice && <p className="notice" role="status">{notice}</p>}
     {selected ? <ConsultationForm key={selected.citaId} appointment={selected} session={session} saving={saving} onSave={save} onCancel={reload} onExpired={onExpired} /> : <>
+      <ClinicalAnnulments session={session} onExpired={onExpired} onBusyChange={onBusyChange} />
+      <h2>Pacientes preparados</h2>
       <button className="secondary" disabled={loading} onClick={reload}>Actualizar pacientes</button>
       {loading ? <p role="status">Cargando pacientes…</p> : queue && <>
         {!queue.pacientes.length && <p className="empty">No hay pacientes preparados en esta página.</p>}

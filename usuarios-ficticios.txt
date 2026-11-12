@@ -1,0 +1,44 @@
+Username | Nombre
+admin | Administrador San Rafael
+carlos.fernandez_3 | Carlos Fernandez
+demo.admision | Admision Ficticia
+demo.caja | Caja Ficticia
+demo.catalogo.cardiologia.1 | Sebastián Vargas León
+demo.catalogo.cardiologia.2 | Luciana Castillo Ramos
+demo.catalogo.cardiologia.3 | Mateo Herrera Díaz
+demo.catalogo.dermatologia.1 | Diego Cabrera Rojas
+demo.catalogo.dermatologia.2 | Mariana Fuentes Ortiz
+demo.catalogo.dermatologia.3 | Nicolás Espinoza Luna
+demo.catalogo.endocrinologia.1 | Elena Ponce Carrillo
+demo.catalogo.endocrinologia.2 | Rafael Mejía Zegarra
+demo.catalogo.endocrinologia.3 | Beatriz Pizarro Cueva
+demo.catalogo.gastroenterologia.1 | Paula Cárdenas Rivas
+demo.catalogo.gastroenterologia.2 | Emiliano Delgado Vera
+demo.catalogo.gastroenterologia.3 | Gabriela Valdez Ponce
+demo.catalogo.general.1 | Valeria Ríos Mendoza
+demo.catalogo.general.2 | Andrés Salazar Vega
+demo.catalogo.general.3 | Camila Torres Ruiz
+demo.catalogo.ginecologia.1 | Leonardo Quiroz Medina
+demo.catalogo.ginecologia.2 | Natalia Acosta Ibarra
+demo.catalogo.ginecologia.3 | Rodrigo Palacios Nuñez
+demo.catalogo.neurologia.1 | Alejandra Navarro Peña
+demo.catalogo.neurologia.2 | Santiago Molina Reyes
+demo.catalogo.neurologia.3 | Daniela Aguilar Campos
+demo.catalogo.oftalmologia.1 | Claudia Arias Montoya
+demo.catalogo.oftalmologia.2 | Tomás Villanueva Bravo
+demo.catalogo.oftalmologia.3 | Sofía López Chávez
+demo.catalogo.otorrino.1 | Martín Alvarado Prado
+demo.catalogo.otorrino.2 | Andrea Miranda Robles
+demo.catalogo.otorrino.3 | Álvaro Sánchez Cornejo
+demo.catalogo.pediatria.1 | Isabella Flores Castro
+demo.catalogo.pediatria.2 | Gabriel Mendoza Soto
+demo.catalogo.pediatria.3 | Renata Paredes Silva
+demo.catalogo.traumatologia.1 | Joaquín Gutiérrez Paz
+demo.catalogo.traumatologia.2 | Fernanda Romero Vidal
+demo.catalogo.traumatologia.3 | Adrián Benavides Solís
+demo.catalogo.urologia.1 | Bruno Vásquez Tapia
+demo.catalogo.urologia.2 | Patricia Dávila Lozano
+demo.catalogo.urologia.3 | Eduardo Cáceres Pastor
+demo.enfermeria | Enfermeria Ficticia
+demo.medico | Medico Ficticio
+demo.medico.pediatria | Medico Pediatria Ficticio

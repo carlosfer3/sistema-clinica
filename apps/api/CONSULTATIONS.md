@@ -1,5 +1,7 @@
 # HU08: consultas y receta manual
 
+Actualización del 12/11/2026: el catálogo versionado se carga con `npm.cmd run db:seed:cie10` y contiene 15.037 códigos; ver [fuente y alcance](CIE10.md). La anulación de consultas propias con motivo ya tiene API y pantalla; ver [HU09](CLINICAL-ANNULMENT.md). Los resultados históricos de incrementos que siguen corresponden a las fechas indicadas.
+
 ## HCE durante la consulta
 
 **Atender paciente** incluye ahora antecedentes, alergias y consultas anteriores con diagnósticos y recetas, paginadas por fecha descendente. Ver [acceso, contrato y pruebas de HCE](PATIENT-HISTORY.md). No requiere migraciones adicionales.

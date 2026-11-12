@@ -46,6 +46,28 @@ export class ConsultationsService {
     });
   }
 
+  async list(actorId: number, ip?: string) {
+    await this.audit.record(actorId, 'READ_OWN_CONSULTATIONS', 'consultations', ip);
+    return this.prisma.consulta.findMany({
+      where: { medico: { usuarioId: actorId } },
+      include: { ...details, paciente: { select: { nombres: true, apellidos: true, numeroDocumento: true } } },
+      orderBy: [{ fechaHora: 'desc' }, { id: 'desc' }], take: 50,
+    });
+  }
+
+  async annul(id: number, motivo: string, actorId: number, ip?: string) {
+    if (!motivo.trim() || motivo.length > 300) throw new BadRequestException('Annulment reason required');
+    return this.prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM consulta WHERE id = ${id} FOR UPDATE`;
+      const existing = await tx.consulta.findFirst({ where: { id, medico: { usuarioId: actorId } } });
+      if (!existing) throw new NotFoundException('Consultation not accessible');
+      if (existing.estado === 'anulado') throw new ConflictException('Consultation already annulled');
+      const result = await tx.consulta.update({ where: { id }, data: { estado: 'anulado', motivoAnulacion: motivo.trim(), anuladoPor: actorId, anuladoEn: new Date() }, include: details });
+      await tx.bitacoraAuditoria.create({ data: { usuarioId: actorId, accion: 'ANNUL_CONSULTATION', recurso: `consultations/${id}`, ipOrigen: ip, detalles: JSON.stringify({ motivo: motivo.trim() }) } });
+      return result;
+    });
+  }
+
   async create(dto: CreateConsultationDto, actorId: number, ip?: string) {
     return this.prisma.$transaction(
       async (tx) => {

@@ -1,0 +1,380 @@
+// Generado desde PostgreSQL por npm run docs:schema. Sin datos personales.
+// CHECK, triggers, exclusiones GiST y funciones: ver schema.sql.
+
+Enum "CanalOrigen" {
+  "presencial"
+  "telefono"
+  "portal"
+}
+
+Enum "EstadoCita" {
+  "programada"
+  "confirmada"
+  "reprogramada"
+  "cancelada"
+  "atendida"
+  "no_asistio"
+  "pendiente_confirmacion"
+}
+
+Enum "EstadoConsulta" {
+  "activo"
+  "anulado"
+}
+
+Enum "ModalidadCita" {
+  "presencial"
+  "virtual"
+}
+
+Enum "RolUsuario" {
+  "admision"
+  "medico"
+  "enfermeria"
+  "laboratorio"
+  "cajero"
+  "gerencia"
+  "paciente"
+  "admin"
+}
+
+Table "_prisma_migrations" {
+  "id" varchar(36) [not null]
+  "checksum" varchar(64) [not null]
+  "finished_at" "timestamp with time zone"
+  "migration_name" varchar(255) [not null]
+  "logs" "text"
+  "rolled_back_at" "timestamp with time zone"
+  "started_at" "timestamp with time zone" [not null]
+  "applied_steps_count" "integer" [not null]
+  indexes {
+    ("id") [pk]
+  }
+}
+
+Table "actor_codigo_reservado" {
+  "codigo" varchar(4) [not null]
+  indexes {
+    ("codigo") [pk]
+  }
+}
+
+Table "alergia" {
+  "id" "integer" [not null]
+  "paciente_id" "integer" [not null]
+  "sustancia" varchar(100) [not null]
+  "reaccion" varchar(200)
+  indexes {
+    ("id") [pk]
+  }
+}
+
+Table "antecedente" {
+  "id" "integer" [not null]
+  "paciente_id" "integer" [not null]
+  "tipo" varchar(30) [not null]
+  "descripcion" varchar(300) [not null]
+  "desde" "date"
+  "registrado_en" "timestamp with time zone" [not null]
+  indexes {
+    ("id") [pk]
+  }
+}
+
+Table "bitacora_auditoria" {
+  "id" "integer" [not null]
+  "usuario_id" "integer"
+  "accion" varchar(50) [not null]
+  "recurso" varchar(100) [not null]
+  "detalles" "text"
+  "ip_origen" varchar(45)
+  "fecha_hora" "timestamp with time zone" [not null]
+  indexes {
+    ("id") [pk]
+  }
+}
+
+Table "cie10" {
+  "codigo" varchar(10) [not null]
+  "descripcion" varchar(250) [not null]
+  indexes {
+    ("codigo") [pk]
+  }
+}
+
+Table "cita" {
+  "id" "integer" [not null]
+  "paciente_id" "integer" [not null]
+  "medico_id" "integer" [not null]
+  "fecha_hora_inicio" "timestamp with time zone" [not null]
+  "fecha_hora_fin" "timestamp with time zone" [not null]
+  "motivo" varchar(300)
+  "estado" "EstadoCita" [not null]
+  "canal_origen" "CanalOrigen" [not null]
+  "modalidad" "ModalidadCita" [not null]
+  "enlace_virtual" varchar(300)
+  "llegada_en" "timestamp with time zone"
+  "creado_por" "integer" [not null]
+  "creado_en" "timestamp with time zone" [not null]
+  "consultorio_id" "smallint"
+  "preparacion_completada_en" "timestamp with time zone"
+  indexes {
+    ("id") [pk]
+  }
+}
+
+Table "cobro" {
+  "id" "integer" [not null]
+  "paciente_id" "integer" [not null]
+  "concepto" varchar(160) [not null]
+  "monto_centimos" "integer" [not null]
+  "estado" varchar(16) [not null]
+  "creado_en" "timestamp with time zone" [not null]
+  "creado_por" "integer" [not null]
+  "pagado_en" "timestamp with time zone"
+  "pagado_por" "integer"
+  "metodo_pago" varchar(20)
+  "referencia" varchar(100)
+  indexes {
+    ("id") [pk]
+  }
+}
+
+Table "consulta" {
+  "id" "integer" [not null]
+  "paciente_id" "integer" [not null]
+  "medico_id" "integer" [not null]
+  "cita_id" "integer"
+  "fecha_hora" "timestamp with time zone" [not null]
+  "motivo" varchar(300) [not null]
+  "indicaciones" "text"
+  "estado" "EstadoConsulta" [not null]
+  "motivo_anulacion" varchar(300)
+  "anulado_por" "integer"
+  "anulado_en" "timestamp with time zone"
+  indexes {
+    ("id") [pk]
+    ("cita_id") [unique]
+  }
+}
+
+Table "consulta_diagnostico" {
+  "id" "integer" [not null]
+  "consulta_id" "integer" [not null]
+  "cie10_codigo" varchar(10) [not null]
+  "descripcion" varchar(250) [not null]
+  "tipo" varchar(15) [not null]
+  "orden" "integer" [not null]
+  indexes {
+    ("id") [pk]
+    ("consulta_id", "cie10_codigo") [unique]
+    ("consulta_id", "orden") [unique]
+    ("consulta_id") [unique]
+  }
+}
+
+Table "consultorio" {
+  "id" "smallint" [not null]
+  "nombre" varchar(40) [not null]
+  "activo" "boolean" [not null]
+  indexes {
+    ("id") [pk]
+    ("nombre") [unique]
+  }
+}
+
+Table "especialidad" {
+  "id" "smallint" [not null]
+  "nombre" varchar(100) [not null]
+  "descripcion" varchar(255)
+  indexes {
+    ("id") [pk]
+    ("nombre") [unique]
+  }
+}
+
+Table "evaluacion_previa" {
+  "id" "integer" [not null]
+  "cita_id" "integer" [not null]
+  "registrado_por" "integer" [not null]
+  "registrado_en" "timestamp with time zone" [not null]
+  "temperatura_c" "double precision" [not null]
+  "presion_sistolica" "integer" [not null]
+  "presion_diastolica" "integer" [not null]
+  "frecuencia_cardiaca" "integer" [not null]
+  "frecuencia_respiratoria" "integer" [not null]
+  "saturacion_oxigeno" "double precision" [not null]
+  "peso_kg" "double precision"
+  "talla_cm" "double precision"
+  "observaciones" varchar(1000)
+  indexes {
+    ("id") [pk]
+    ("cita_id") [unique]
+  }
+}
+
+Table "horario_medico" {
+  "id" "integer" [not null]
+  "medico_id" "integer" [not null]
+  "consultorio_id" "smallint" [not null]
+  "dia_semana" "smallint" [not null]
+  "hora_inicio" "time without time zone" [not null]
+  "hora_fin" "time without time zone" [not null]
+  "duracion_cita_min" "smallint" [not null]
+  indexes {
+    ("id") [pk]
+    ("medico_id", "dia_semana", "hora_inicio") [unique]
+  }
+}
+
+Table "medico" {
+  "id" "integer" [not null]
+  "usuario_id" "integer" [not null]
+  "especialidad_id" "smallint" [not null]
+  "cmp" varchar(10) [not null]
+  "codigo" varchar(4) [not null]
+  indexes {
+    ("id") [pk]
+    ("usuario_id") [unique]
+    ("cmp") [unique]
+    ("codigo") [unique]
+  }
+}
+
+Table "notificacion_cita" {
+  "id" "integer" [not null]
+  "cita_id" "integer" [not null]
+  "tipo" varchar(16) [not null]
+  "correo" varchar(120) [not null]
+  "inicio" "timestamp with time zone" [not null]
+  "inicio_anterior" "timestamp with time zone"
+  "especialidad" "text" [not null]
+  "pendiente_confirmacion" "boolean" [not null]
+  "estado" varchar(16) [not null]
+  "intentos" "integer" [not null]
+  "creado_en" "timestamp with time zone" [not null]
+  "actualizado_en" "timestamp with time zone" [not null]
+  "enviado_en" "timestamp with time zone"
+  indexes {
+    ("id") [pk]
+  }
+}
+
+Table "notificacion_portal" {
+  "id" "integer" [not null]
+  "usuario_id" "integer" [not null]
+  "titulo" varchar(100) [not null]
+  "detalle" varchar(500) [not null]
+  "leida" "boolean" [not null]
+  "creado_en" "timestamp with time zone" [not null]
+  indexes {
+    ("id") [pk]
+  }
+}
+
+Table "paciente" {
+  "id" "integer" [not null]
+  "usuario_id" "integer"
+  "tipo_documento" varchar(12) [not null]
+  "numero_documento" varchar(15) [not null]
+  "fecha_nacimiento" "date" [not null]
+  "sexo" varchar(1) [not null]
+  "telefono" varchar(20) [not null]
+  "correo" varchar(120) [not null]
+  "direccion" varchar(200)
+  "nombres" varchar(100) [not null]
+  "apellidos" varchar(100) [not null]
+  "codigo" varchar(4) [not null]
+  indexes {
+    ("id") [pk]
+    ("usuario_id") [unique]
+    ("tipo_documento", "numero_documento") [unique]
+    ("codigo") [unique]
+  }
+}
+
+Table "preferencias_portal" {
+  "usuario_id" "integer" [not null]
+  "sms" "boolean" [not null]
+  "correo" "boolean" [not null]
+  "whatsapp" "boolean" [not null]
+  indexes {
+    ("usuario_id") [pk]
+  }
+}
+
+Table "receta_item" {
+  "id" "integer" [not null]
+  "consulta_id" "integer" [not null]
+  "orden" "integer" [not null]
+  "medicamento" varchar(150) [not null]
+  "dosis" varchar(100) [not null]
+  "via" varchar(80) [not null]
+  "frecuencia" varchar(100) [not null]
+  "duracion" varchar(100) [not null]
+  "indicaciones" varchar(500)
+  indexes {
+    ("id") [pk]
+    ("consulta_id", "orden") [unique]
+  }
+}
+
+Table "recordatorio_cita" {
+  "id" "integer" [not null]
+  "cita_id" "integer" [not null]
+  "inicio" "timestamp with time zone" [not null]
+  "estado" varchar(16) [not null]
+  "intentos" "integer" [not null]
+  "actualizado_en" "timestamp with time zone" [not null]
+  "enviado_en" "timestamp with time zone"
+  indexes {
+    ("id") [pk]
+    ("cita_id", "inicio") [unique]
+  }
+}
+
+Table "usuario" {
+  "id" "integer" [not null]
+  "rol" "RolUsuario" [not null]
+  "username" varchar(50) [not null]
+  "password_hash" varchar(255) [not null]
+  "nombres" varchar(100) [not null]
+  "apellidos" varchar(100) [not null]
+  "activo" "boolean" [not null]
+  "creado_en" "timestamp with time zone" [not null]
+  "codigo" varchar(4) [not null]
+  indexes {
+    ("id") [pk]
+    ("username") [unique]
+    ("codigo") [unique]
+  }
+}
+
+Ref: "alergia"."paciente_id" > "paciente"."id"
+Ref: "antecedente"."paciente_id" > "paciente"."id"
+Ref: "bitacora_auditoria"."usuario_id" > "usuario"."id"
+Ref: "cita"."consultorio_id" > "consultorio"."id"
+Ref: "cita"."creado_por" > "usuario"."id"
+Ref: "cita"."medico_id" > "medico"."id"
+Ref: "cita"."paciente_id" > "paciente"."id"
+Ref: "cobro"."creado_por" > "usuario"."id"
+Ref: "cobro"."paciente_id" > "paciente"."id"
+Ref: "cobro"."pagado_por" > "usuario"."id"
+Ref: "consulta"."anulado_por" > "usuario"."id"
+Ref: "consulta"."cita_id" > "cita"."id"
+Ref: "consulta"."medico_id" > "medico"."id"
+Ref: "consulta"."paciente_id" > "paciente"."id"
+Ref: "consulta_diagnostico"."cie10_codigo" > "cie10"."codigo"
+Ref: "consulta_diagnostico"."consulta_id" > "consulta"."id"
+Ref: "evaluacion_previa"."cita_id" > "cita"."id"
+Ref: "evaluacion_previa"."registrado_por" > "usuario"."id"
+Ref: "horario_medico"."consultorio_id" > "consultorio"."id"
+Ref: "horario_medico"."medico_id" > "medico"."id"
+Ref: "medico"."especialidad_id" > "especialidad"."id"
+Ref: "medico"."usuario_id" > "usuario"."id"
+Ref: "notificacion_cita"."cita_id" > "cita"."id"
+Ref: "notificacion_portal"."usuario_id" > "usuario"."id"
+Ref: "paciente"."usuario_id" > "usuario"."id"
+Ref: "preferencias_portal"."usuario_id" > "usuario"."id"
+Ref: "receta_item"."consulta_id" > "consulta"."id"
+Ref: "recordatorio_cita"."cita_id" > "cita"."id"

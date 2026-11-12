@@ -1,0 +1,88 @@
+name: Sprint 1 checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: siges_ci
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:ci_password@localhost:5432/siges_ci?schema=public
+      JWT_SECRET: ci-only-secret-with-at-least-32-characters
+      REMINDERS_ENABLED: "false"
+      NOTIFICATIONS_ENABLED: "false"
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci
+      - run: npm run prisma:generate
+      - run: npm run build
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:e2e -- --maxWorkers=2
+      - run: npm run test:db
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm run lint
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e -- --workers=2
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-failures
+          path: apps/web/test-results
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      JWT_SECRET: ci-container-secret-with-at-least-32-characters
+      POSTGRES_PASSWORD: ci_password
+      POSTGRES_DB: siges_ci
+      POSTGRES_PORT: 5434
+      API_PORT: 3001
+      WEB_PORT: 8080
+      REMINDERS_ENABLED: "false"
+      NOTIFICATIONS_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose --profile app up --build -d --wait
+      - run: docker compose run --rm --no-deps migrate npm run test:db -- integrity
+      - run: curl --fail http://localhost:8080/ && curl --fail http://localhost:8080/api/openapi.json && curl --fail http://localhost:8080/pacientes/login
+      - run: docker compose logs --no-color
+        if: failure()
+      - run: docker compose --profile app down --volumes
+        if: always()

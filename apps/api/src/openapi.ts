@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { responseSchemas } from './openapi/schemas.js';
@@ -26,6 +27,16 @@ export function setupOpenApi(app: INestApplication) {
   // Match ValidationPipe: request DTOs reject non-whitelisted properties.
   for (const name of [
     'LoginDto',
+    'ChargesQueryDto',
+    'CreateChargeDto',
+    'SettleChargeDto',
+    'PatientLoginDto',
+    'PortalAppointmentsDto',
+    'PortalBookingDto',
+    'RescheduleAppointmentDto',
+    'PortalRescheduleAppointmentDto',
+    'AnnulConsultationDto',
+    'CancelAppointmentDto',
     'CreatePatientDto',
     'SearchPatientsDto',
     'CreateAppointmentDto',
@@ -46,6 +57,7 @@ export function setupOpenApi(app: INestApplication) {
     jsonDocumentUrl: '/api/openapi.json',
     yamlDocumentUrl: '/api/openapi.yaml',
     customSiteTitle: 'SIGES SR · API',
+    customfavIcon: `data:image/x-icon;base64,${readFileSync(new URL('../public/favicon.ico', import.meta.url)).toString('base64')}`,
     swaggerOptions: {
       persistAuthorization: false,
       showExtensions: true,

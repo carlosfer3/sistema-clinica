@@ -1,3 +1,7 @@
+import {
+  CancelAppointmentDto,
+  RescheduleAppointmentDto,
+} from './change-appointment.dto.js';
 import { DailyAppointmentsDto } from './daily-appointments.dto.js';
 import { ApiBody, ApiTags } from '@nestjs/swagger';
 import { ApiContract } from '../openapi/api-contract.decorator.js';
@@ -73,6 +77,72 @@ export class AgendaController {
     @Ip() ip: string,
   ) {
     return this.agenda.create(dto, req.user!.id, ip);
+  }
+
+  @ApiContract('Reprogramar cita', 'Appointment', {
+    description:
+      'Solo admisión. Conserva paciente y médico. Revalida turno futuro y disponibilidad en una transacción. No permite llegada, preparación ni consulta registradas.',
+    errors: {
+      400: 'Inicio inválido, sin cambio o fuera de horario.',
+      404: 'Cita o médico inexistente.',
+      409: 'Cita no modificable o turno ocupado.',
+    },
+  })
+  @ApiBody({ type: RescheduleAppointmentDto })
+  @Post('appointments/:id/reschedule')
+  @HttpCode(200)
+  @Roles('admision')
+  reschedule(
+    @Param() params: ArrivalParamsDto,
+    @Body() dto: RescheduleAppointmentDto,
+    @Req() req: AuthRequest,
+    @Ip() ip: string,
+  ) {
+    return this.agenda.reschedule(params.id, dto.inicio, req.user!.id, ip, undefined, dto.motivo);
+  }
+
+  @ApiContract('Cancelar cita', 'Appointment', {
+    description:
+      'Solo admisión. Libera el turno sin borrar la cita. No permite llegada, preparación ni consulta registradas. Auditoría transaccional.',
+    errors: {
+      400: 'ID o cuerpo inválido.',
+      404: 'Cita inexistente.',
+      409: 'Cita no modificable.',
+    },
+  })
+  @ApiBody({ type: CancelAppointmentDto })
+  @Post('appointments/:id/cancel')
+  @HttpCode(200)
+  @Roles('admision')
+  cancel(
+    @Param() params: ArrivalParamsDto,
+    @Body() _dto: CancelAppointmentDto,
+    @Req() req: AuthRequest,
+    @Ip() ip: string,
+  ) {
+    return this.agenda.cancel(params.id, req.user!.id, ip);
+  }
+
+  @ApiContract('Confirmar solicitud de cita del portal', 'Appointment', {
+    description:
+      'Solo admisión. Confirma una solicitud futura pendiente del portal; cambio y auditoría atómicos. Un reintento conserva la confirmación sin duplicar auditoría.',
+    errors: {
+      400: 'ID o cuerpo inválido.',
+      404: 'Cita inexistente.',
+      409: 'Solicitud no confirmable.',
+    },
+  })
+  @ApiBody({ type: CancelAppointmentDto })
+  @Post('appointments/:id/confirm')
+  @HttpCode(200)
+  @Roles('admision')
+  confirm(
+    @Param() params: ArrivalParamsDto,
+    @Body() _dto: CancelAppointmentDto,
+    @Req() req: AuthRequest,
+    @Ip() ip: string,
+  ) {
+    return this.agenda.confirm(params.id, req.user!.id, ip);
   }
 
   @ApiContract('Registrar llegada', 'Arrival', {

@@ -21,6 +21,7 @@ const prisma = new PrismaClient();
 try {
   const passwordHash = await hash(password, 12);
   const users = [
+    { username: 'demo.caja', rol: 'cajero', nombres: 'Caja', apellidos: 'Ficticia' },
     {
       username: 'demo.admision',
       rol: 'admision',
@@ -153,7 +154,7 @@ try {
     { timeout: 15000 },
   );
   console.log(
-    'Demo accounts available: demo.admision, demo.medico, demo.medico.pediatria, demo.enfermeria',
+    'Demo accounts available: demo.caja, demo.admision, demo.medico, demo.medico.pediatria, demo.enfermeria',
   );
   console.log(
     'Demo agenda available: 2 specialties, 2 doctors, 2 rooms and 5 weekly blocks. No patients or appointments created.',

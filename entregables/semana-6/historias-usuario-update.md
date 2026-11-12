@@ -1,6 +1,8 @@
 ## Historias de Usuario
 
-> **Ajuste de alcance — 08/11/2026:** admisión registra únicamente datos demográficos y de contacto (HU06). Enfermería identifica pacientes con llegada registrada (HU04) y registra signos vitales y observaciones previos a la consulta (HU10), sin acceso al historial médico. El médico consulta esa evaluación y el historial mediante HU03. Registrar la llegada es una precondición que debe incorporarse al flujo de admisión. Las estimaciones se conservan provisionalmente. Este acuerdo modifica los requisitos; la API actual todavía permite antecedentes/alergias en el alta y acceso de enfermería al perfil clínico, por lo que debe adecuarse junto con sus pruebas. Los diagramas e informes históricos pueden reflejar el alcance anterior.
+> **Estado técnico al 12/11/2026:** la API ya aplica la separación de permisos descrita a continuación. Ver la [matriz actual de aceptación](../semana-8/aceptacion-sprint-1.md) para implementación, evidencias y pendientes de DoD. Las notas de estado anteriores se conservan como contexto histórico.
+>
+> **Ajuste de alcance — 08/11/2026:** admisión registra únicamente datos demográficos y de contacto (HU06). Enfermería identifica pacientes con llegada registrada (HU04) y registra signos vitales y observaciones previos a la consulta (HU10), sin acceso al historial médico. El médico consulta esa evaluación y el historial mediante HU03. Registrar la llegada es una precondición del flujo de admisión. Las estimaciones se conservan provisionalmente. Los diagramas e informes históricos pueden reflejar el alcance anterior.
 
 
 #### HU01 (5 pts) 

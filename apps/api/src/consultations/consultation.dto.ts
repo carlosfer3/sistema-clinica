@@ -16,6 +16,14 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export class AnnulConsultationDto {
+  @IsString()
+  @Matches(/\S/)
+  @MaxLength(300)
+  @ApiProperty({ type: String, maxLength: 300, description: 'Motivo obligatorio de anulación.' })
+  motivo: string;
+}
+
 export class DiagnosisDto {
   @IsString()
   @Matches(/^[A-Z][0-9]{2}(\.[0-9A-Z]{1,4})?$/)

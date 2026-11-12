@@ -1,3 +1,6 @@
+import { BillingModule } from './billing/billing.module.js';
+import { RemindersModule } from './reminders/reminders.module.js';
+import { PortalModule } from './portal/portal.module.js';
 import { ConsultationsModule } from './consultations/consultations.module.js';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -20,6 +23,9 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     AuthModule,
     PatientsModule,
     AgendaModule,
+    PortalModule,
+    BillingModule,
+    RemindersModule,
     ConsultationsModule,
     ObserveModule.forRoot({
       appKey: process.env.OBSERVE_APP_KEY ?? 'YOUR_APP_KEY',

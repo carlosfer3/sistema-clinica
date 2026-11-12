@@ -15,6 +15,8 @@ describe('Reservations (HTTP, mocked database)', () => {
   const schedules = vi.fn();
   const overlap = vi.fn();
   const create = vi.fn();
+  const find = vi.fn();
+  const update = vi.fn();
   const audit = vi.fn();
   const lock = vi.fn();
   const tx = {
@@ -22,7 +24,13 @@ describe('Reservations (HTTP, mocked database)', () => {
     medico: { findFirst: doctor },
     paciente: { findUnique: patient },
     horarioMedico: { findMany: schedules },
-    cita: { findFirst: overlap, create },
+    cita: {
+      findFirst: overlap,
+      create,
+      findUnique: find,
+      findUniqueOrThrow: find,
+      update,
+    },
     bitacoraAuditoria: { create: audit },
   };
   const transaction = vi.fn(
@@ -73,6 +81,19 @@ describe('Reservations (HTTP, mocked database)', () => {
       },
     ]);
     create.mockResolvedValue({ id: 12, estado: 'programada' });
+    find.mockResolvedValue({
+      id: 12,
+      medicoId: 2,
+      pacienteId: 1,
+      estado: 'programada',
+      fechaHoraInicio: new Date('2099-01-09T13:00:00Z'),
+      fechaHoraFin: new Date('2099-01-09T13:20:00Z'),
+      llegadaEn: null,
+      consulta: null,
+      evaluacionPrevia: null,
+      preparacionCompletadaEn: null,
+    });
+    update.mockResolvedValue({ id: 12, estado: 'reprogramada' });
   });
 
   it('requires an admission account', async () => {
@@ -155,5 +176,143 @@ describe('Reservations (HTTP, mocked database)', () => {
   ])('rejects incomplete, unaligned or past slots: %s', async (inicio) => {
     await post({ ...body, inicio }).expect(400);
     expect(create).not.toHaveBeenCalled();
+  });
+  const change = (action: string, data: object = {}, id = '12') =>
+    request(app.getHttpServer())
+      .post(`/api/agenda/appointments/${id}/${action}`)
+      .auth(token, { type: 'bearer' })
+      .send(action === 'reschedule' ? { motivo: 'Cambio solicitado por paciente', ...data } : data);
+  it('reschedules with the original doctor/patient, excludes itself and audits old/new times', async () => {
+    await change('reschedule', { inicio: '2099-01-09T08:20:00-05:00' }).expect(
+      200,
+    );
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 12 },
+        data: {
+          fechaHoraInicio: new Date('2099-01-09T13:20:00Z'),
+          fechaHoraFin: new Date('2099-01-09T13:40:00Z'),
+          estado: 'reprogramada',
+        },
+      }),
+    );
+    expect(overlap).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: { not: 12 }, medicoId: 2 }),
+      }),
+    );
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          accion: 'RESCHEDULE_CITA',
+          detalles: expect.stringContaining('inicioAnterior'),
+        }),
+      }),
+    );
+    expect(create).not.toHaveBeenCalled();
+  });
+  it('cancels without deleting the appointment and audits the change', async () => {
+    await change('cancel').expect(200);
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { estado: 'cancelada' } }),
+    );
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ accion: 'CANCEL_CITA' }),
+      }),
+    );
+  });
+  it.each(['reschedule', 'cancel'])(
+    'restricts %s to admission and validates IDs and unknown fields',
+    async (action) => {
+      await change(action, { estado: 'cancelada' }).expect(400);
+      await change(action, {}, 'abc').expect(400);
+      actor.mockResolvedValue({ id: 7, rol: 'enfermeria', activo: true });
+      await change(action).expect(403);
+      expect(update).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    { estado: 'atendida' },
+    { estado: 'cancelada' },
+    { estado: 'no_asistio' },
+    { llegadaEn: new Date() },
+    { preparacionCompletadaEn: new Date() },
+    { consulta: { id: 1 } },
+    { evaluacionPrevia: { id: 1 } },
+  ])(
+    'prevents changing clinical or closed appointments: %j',
+    async (fields) => {
+      const previous = await find();
+      find.mockResolvedValue({ ...previous, ...fields });
+      await change('cancel').expect(409);
+      await change('reschedule', {
+        inicio: '2099-01-09T08:20:00-05:00',
+      }).expect(409);
+      expect(update).not.toHaveBeenCalled();
+    },
+  );
+  it('rejects unavailable or unchanged rescheduling without modifying the original', async () => {
+    await change('reschedule', body).expect(400);
+    await change('reschedule', { inicio: body.inicio }).expect(400);
+    overlap.mockResolvedValue({ id: 99 });
+    await change('reschedule', { inicio: '2099-01-09T08:20:00-05:00' }).expect(
+      409,
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
+  it('rejects nonexistent appointments', async () => {
+    find.mockResolvedValue(null);
+    await change('cancel').expect(404);
+    await change('reschedule', { inicio: '2099-01-09T08:20:00-05:00' }).expect(
+      404,
+    );
+  });
+  it('only admission can confirm a pending future portal request', async () => {
+    const original = await find();
+    find.mockResolvedValue({
+      ...original,
+      canalOrigen: 'portal',
+      estado: 'pendiente_confirmacion',
+    });
+    await change('confirm').expect(200);
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { estado: 'confirmada' } }),
+    );
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ accion: 'CONFIRM_CITA', usuarioId: 7 }),
+      }),
+    );
+    actor.mockResolvedValue({ id: 7, rol: 'paciente', activo: true });
+    await change('confirm').expect(403);
+  });
+  it('does not permit arrival while a portal request awaits confirmation', async () => {
+    const original = await find();
+    find.mockResolvedValue({
+      ...original,
+      fechaHoraInicio: new Date(),
+      modalidad: 'presencial',
+      estado: 'pendiente_confirmacion',
+    });
+    await change('arrival').expect(409);
+    expect(update).not.toHaveBeenCalled();
+  });
+  it('keeps confirmation retries idempotent and rejects closed requests', async () => {
+    const original = await find();
+    find.mockResolvedValue({
+      ...original,
+      canalOrigen: 'portal',
+      estado: 'confirmada',
+    });
+    await change('confirm').expect(200);
+    expect(update).not.toHaveBeenCalled();
+    expect(audit).not.toHaveBeenCalled();
+    find.mockResolvedValue({
+      ...original,
+      canalOrigen: 'portal',
+      estado: 'cancelada',
+    });
+    await change('confirm').expect(409);
   });
 });

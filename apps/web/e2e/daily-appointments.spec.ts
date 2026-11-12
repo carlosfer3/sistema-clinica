@@ -2,6 +2,23 @@ import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 const appointment = { id: 12, inicio: '2026-11-08T15:00:00Z', fin: '2026-11-08T15:20:00Z', estado: 'programada', modalidad: 'presencial', llegadaEn: null, paciente: { id: 1, nombres: 'Paciente', apellidos: 'Prueba', tipoDocumento: 'DNI', numeroDocumento: '87654321' }, medico: { id: 2, nombres: 'Medico', apellidos: 'Prueba' }, especialidad: { id: 1, nombre: 'Medicina General' } }
 const listing = (citas: object[] = [appointment], hayMas = false) => ({ fecha: '2026-11-08', zonaHoraria: 'America/Lima', pagina: 1, limite: 20, hayMas, citas })
+
+test('admission reviews future portal requests and explicitly confirms them', async ({ page }) => {
+  let confirmed = false; let writes = 0
+  await page.route('**/api/agenda/appointments?*', route => {
+    const query = new URL(route.request().url()).searchParams
+    if (query.get('pendientesPortal') === 'true') { expect(query.has('fecha')).toBe(false); return route.fulfill({ json: listing(confirmed ? [] : [{ ...appointment, inicio: '2026-11-13T15:00:00Z', estado: 'pendiente_confirmacion' }]) }) }
+    return route.fulfill({ json: listing([]) })
+  })
+  await page.route('**/api/agenda/appointments/12/confirm', route => { writes++; expect(route.request().postDataJSON()).toEqual({}); confirmed = true; return route.fulfill({ json: { id: 12, estado: 'confirmada' } }) })
+  await login(page)
+  await page.getByRole('button', { name: 'Solicitudes del portal', exact: true }).click()
+  await expect(page.locator('.daily-table tbody tr').getByText('Pendiente de confirmación', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Registrar llegada', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Confirmar cita', exact: true }).click(); expect(writes).toBe(0)
+  await page.getByRole('button', { name: 'Confirmar solicitud', exact: true }).click()
+  await expect(page.getByText('Cita confirmada por admisión.')).toBeVisible(); expect(writes).toBe(1)
+})
 async function login(page: Page) {
   await page.clock.setFixedTime(new Date('2026-11-08T15:00:00Z'))
   await page.route('**/api/auth/login', route => route.fulfill({ json: { accessToken: 'test-token' } }))
@@ -17,11 +34,11 @@ test('confirms arrival, refreshes the list and preserves appointment state', asy
   await login(page); await expect(page.getByText('10:00–10:20')).toBeVisible()
   await page.getByRole('button', { name: 'Registrar llegada', exact: true }).click(); await expect(page.getByRole('heading', { name: 'Confirmar llegada' })).toBeVisible(); expect(writes).toBe(0)
   await page.getByRole('button', { name: 'Confirmar llegada', exact: true }).click()
-  await expect(page.getByText('Llegada registrada: 09:50')).toBeVisible(); await expect(page.getByRole('article', { name: 'Cita 12', exact: true }).getByText('Programada', { exact: true })).toBeVisible(); expect(writes).toBe(1)
+  await expect(page.getByText('Llegada registrada: 09:50')).toBeVisible(); await expect(page.getByRole('row', { name: 'Cita 12', exact: true }).getByText('Programada', { exact: true })).toBeVisible(); expect(writes).toBe(1)
 })
-test('disables arrival for cancelled, attended, virtual or already arrived appointments', async ({ page }) => {
-  await page.route('**/api/agenda/appointments?*', route => route.fulfill({ json: listing([{ ...appointment, estado: 'cancelada' }, { ...appointment, id: 13, estado: 'atendida' }, { ...appointment, id: 14, modalidad: 'virtual' }, { ...appointment, id: 15, llegadaEn: '2026-11-08T14:50:00Z' }]) }))
-  await login(page); await expect(page.getByRole('article')).toHaveCount(4); await expect(page.getByRole('button', { name: 'Registrar llegada', exact: true })).toHaveCount(0)
+test('disables arrival for cancelled, attended or already arrived appointments', async ({ page }) => {
+  await page.route('**/api/agenda/appointments?*', route => route.fulfill({ json: listing([{ ...appointment, estado: 'cancelada' }, { ...appointment, id: 13, estado: 'atendida' }, { ...appointment, id: 15, llegadaEn: '2026-11-08T14:50:00Z' }]) }))
+  await login(page); await expect(page.locator('.daily-table tbody tr')).toHaveCount(3); await expect(page.getByRole('button', { name: 'Registrar llegada', exact: true })).toHaveCount(0)
 })
 test('filters, paginates and handles an empty list', async ({ page }) => {
   await page.route('**/api/agenda/appointments?*', route => { const params = new URL(route.request().url()).searchParams; return route.fulfill({ json: listing(params.get('estado') === 'cancelada' || params.get('pagina') === '2' ? [] : [appointment], params.get('pagina') === '1' && !params.has('estado')) }) })
@@ -92,7 +109,7 @@ test('clears pending arrival confirmation and stale rows on date changes, and ne
   await expect(page.getByRole('heading', { name: 'Confirmar llegada' })).toHaveCount(0)
   await expect(page.getByText('La llegada solo se puede registrar', { exact: false })).toBeVisible()
   await page.getByLabel('Fecha de las citas').fill('')
-  await expect(page.getByRole('article')).toHaveCount(0)
+  await expect(page.locator('.daily-table tbody tr')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Actualizar lista' })).toBeDisabled()
   expect(requests).not.toContain('')
 })
@@ -101,5 +118,74 @@ test('refreshes after an arrival conflict without retrying the write', async ({ 
   await page.route('**/api/agenda/appointments?*', route => route.fulfill({ json: listing([{ ...appointment, estado: cancelled ? 'cancelada' : 'programada' }]) }))
   await page.route('**/api/agenda/appointments/12/arrival', route => { writes++; cancelled = true; return route.fulfill({ status: 409, json: {} }) })
   await login(page); await page.getByRole('button', { name: 'Registrar llegada', exact: true }).click(); await page.getByRole('button', { name: 'Confirmar llegada', exact: true }).click()
-  await expect(page.getByRole('article').getByText('Cancelada', { exact: true })).toBeVisible(); await expect(page.getByRole('button', { name: 'Registrar llegada', exact: true })).toHaveCount(0); expect(writes).toBe(1)
+  await expect(page.getByRole('row', { name: 'Cita 12', exact: true }).getByText('Cancelada', { exact: true })).toBeVisible(); await expect(page.getByRole('button', { name: 'Registrar llegada', exact: true })).toHaveCount(0); expect(writes).toBe(1)
+})
+
+
+test('cancels only after confirmation and refreshes the appointment state', async ({ page }) => {
+  let cancelled = false; let writes = 0
+  await page.route('**/api/agenda/appointments?*', route => route.fulfill({ json: listing([{ ...appointment, estado: cancelled ? 'cancelada' : 'programada' }]) }))
+  await page.route('**/api/agenda/appointments/12/cancel', route => { writes++; expect(route.request().postDataJSON()).toEqual({}); cancelled = true; return route.fulfill({ json: { id: 12, estado: 'cancelada' } }) })
+  await login(page)
+  await page.getByRole('button', { name: 'Cancelar cita', exact: true }).click()
+  await expect(page.getByRole('dialog').getByRole('heading', { name: '¿Está seguro de cancelar la cita?' })).toBeVisible(); expect(writes).toBe(0)
+  await page.getByRole('button', { name: 'Confirmar cancelación', exact: true }).click()
+  await expect(page.getByText('Cita cancelada. El turno quedó libre.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Cancelar cita', exact: true })).toHaveCount(0); expect(writes).toBe(1)
+})
+
+test('reschedules using available slots and preserves doctor and patient', async ({ page }) => {
+  let writes = 0
+  await page.route('**/api/agenda/appointments?*', route => route.fulfill({ json: listing() }))
+  await page.route('**/api/agenda/availability?*', route => { expect(new URL(route.request().url()).searchParams.get('medicoId')).toBe('2'); return route.fulfill({ json: { turnos: [{ inicio: '2026-11-09T14:00:00Z', fin: '2026-11-09T14:20:00Z' }] } }) })
+  await page.route('**/api/agenda/appointments/12/reschedule', route => { writes++; expect(route.request().postDataJSON()).toEqual({ inicio: '2026-11-09T14:00:00Z', motivo: 'Cambio solicitado' }); return route.fulfill({ json: { id: 12, estado: 'reprogramada' } }) })
+  await login(page); await page.getByRole('button', { name: 'Reprogramar', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Confirmar reprogramación' })).toBeDisabled()
+  await page.getByLabel('Nueva fecha').fill('2026-11-09')
+  await page.getByLabel('Nuevo turno (Lima)').selectOption('2026-11-09T14:00:00Z')
+  await expect(page.getByRole('button', { name: 'Confirmar reprogramación' })).toBeDisabled()
+  await page.getByLabel('Motivo de la reprogramación (obligatorio)').fill('Cambio solicitado')
+  expect(writes).toBe(0)
+  await page.getByRole('button', { name: 'Confirmar reprogramación' }).click()
+  await expect(page.getByText('Cita reprogramada para 2026-11-09 a las 09:00 (Lima).')).toBeVisible(); expect(writes).toBe(1)
+})
+
+test('does not offer changes after arrival or appointment closure', async ({ page }) => {
+  await page.route('**/api/agenda/appointments?*', route => route.fulfill({ json: listing([{ ...appointment, llegadaEn: '2026-11-08T14:50:00Z' }, { ...appointment, id: 13, estado: 'atendida' }, { ...appointment, id: 14, estado: 'cancelada' }]) }))
+  await login(page); await expect(page.locator('.daily-table tbody tr')).toHaveCount(3)
+  await expect(page.getByRole('button', { name: 'Reprogramar', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Cancelar cita', exact: true })).toHaveCount(0)
+})
+
+
+test('keeps a selected slot in the rescheduling modal and handles conflicts', async ({ page }) => {
+  let writes = 0
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.route('**/api/agenda/appointments?*', route => route.fulfill({ json: listing() }))
+  await page.route('**/api/agenda/availability?*', route => route.fulfill({ json: { turnos: [{ inicio: '2026-11-08T16:00:00Z', fin: '2026-11-08T16:20:00Z' }] } }))
+  await page.route('**/api/agenda/appointments/12/reschedule', route => { writes++; return route.fulfill({ status: 409, json: {} }) })
+  await login(page); await page.getByRole('button', { name: 'Reprogramar', exact: true }).click()
+  await page.getByLabel('Nuevo turno (Lima)').selectOption('2026-11-08T16:00:00Z')
+  await page.getByLabel('Motivo de la reprogramación (obligatorio)').fill('Cambio solicitado')
+  await expect(page.getByLabel('Nuevo turno (Lima)')).toHaveValue('2026-11-08T16:00:00Z')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await page.screenshot({ path: test.info().outputPath('reschedule-mobile.png'), fullPage: true })
+  await page.getByRole('button', { name: 'Confirmar reprogramaci\u00f3n' }).click()
+  await expect(page.getByRole('alert')).toContainText('No se pudo realizar el cambio')
+  await expect(page.getByRole('row', { name: 'Cita 12', exact: true }).getByText('Programada', { exact: true })).toBeVisible(); expect(writes).toBe(1)
+})
+
+test('does not repeat an uncertain cancellation and blocks navigation while saving', async ({ page }) => {
+  let finish!: () => void; let writes = 0
+  const gate = new Promise<void>(resolve => { finish = resolve })
+  await page.route('**/api/agenda/appointments?*', route => route.fulfill({ json: listing() }))
+  await page.route('**/api/agenda/appointments/12/cancel', async route => { writes++; await gate; await route.abort() })
+  await login(page); await page.getByRole('button', { name: 'Cancelar cita', exact: true }).click()
+  await page.getByRole('button', { name: 'Confirmar cancelaci\u00f3n', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Cerrar sesi\u00f3n' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Reservar cita', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Guardando cambio\u2026' })).toBeDisabled()
+  finish()
+  await expect(page.getByRole('alert')).toContainText('No se pudo confirmar el resultado')
+  await expect(page.getByRole('button', { name: 'Cerrar sesi\u00f3n' })).toBeEnabled(); expect(writes).toBe(1)
 })

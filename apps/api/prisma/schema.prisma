@@ -21,6 +21,7 @@ enum RolUsuario {
 }
 
 enum EstadoCita {
+  pendiente_confirmacion
   programada
   confirmada
   reprogramada
@@ -50,6 +51,7 @@ enum EstadoConsulta {
 // -------------------------------------------------------------
 
 model Usuario {
+  codigo       String     @unique @default(dbgenerated()) @db.VarChar(4)
   id           Int        @id @default(autoincrement())
   rol          RolUsuario
   username     String     @unique @db.VarChar(50)
@@ -65,11 +67,14 @@ model Usuario {
   consultasAnuladas Consulta[]          @relation("ConsultaAnuladaPor")
   auditorias        BitacoraAuditoria[]
   evaluacionesPrevias EvaluacionPrevia[]
+  cobrosCreados Cobro[] @relation("CobroCreadoPor")
+  cobrosPagados Cobro[] @relation("CobroPagadoPor")
 
   @@map("usuario")
 }
 
 model Paciente {
+  codigo          String   @unique @default(dbgenerated()) @db.VarChar(4)
   id              Int      @id @default(autoincrement())
   usuarioId       Int?     @unique @map("usuario_id")
   nombres         String   @db.VarChar(100)
@@ -87,6 +92,7 @@ model Paciente {
   consultas    Consulta[]
   antecedentes Antecedente[]
   alergias     Alergia[]
+  cobros       Cobro[]
 
   @@unique([tipoDocumento, numeroDocumento])
   @@index([numeroDocumento])
@@ -126,6 +132,7 @@ model Especialidad {
 }
 
 model Medico {
+  codigo         String @unique @default(dbgenerated()) @db.VarChar(4)
   id             Int    @id @default(autoincrement())
   usuarioId      Int    @unique @map("usuario_id")
   especialidadId Int    @map("especialidad_id") @db.SmallInt
@@ -168,6 +175,8 @@ model HorarioMedico {
 }
 
 model Cita {
+  notificaciones NotificacionCita[]
+  recordatorios RecordatorioCita[]
   id              Int           @id @default(autoincrement())
   pacienteId      Int           @map("paciente_id")
   medicoId        Int           @map("medico_id")
@@ -191,6 +200,39 @@ model Cita {
 
   @@index([medicoId, fechaHoraInicio])
   @@map("cita")
+}
+
+model RecordatorioCita {
+  id Int @id @default(autoincrement())
+  citaId Int @map("cita_id")
+  inicio DateTime @db.Timestamptz
+  estado String @default("pendiente") @db.VarChar(16)
+  intentos Int @default(0)
+  actualizadoEn DateTime @default(now()) @map("actualizado_en") @db.Timestamptz
+  enviadoEn DateTime? @map("enviado_en") @db.Timestamptz
+  cita Cita @relation(fields: [citaId], references: [id], onDelete: Restrict)
+  @@unique([citaId, inicio])
+  @@index([estado, actualizadoEn], map: "recordatorio_cita_pendiente_idx")
+  @@map("recordatorio_cita")
+}
+
+model NotificacionCita {
+  id Int @id @default(autoincrement())
+  citaId Int @map("cita_id")
+  tipo String @db.VarChar(16)
+  correo String @db.VarChar(120)
+  inicio DateTime @db.Timestamptz
+  inicioAnterior DateTime? @map("inicio_anterior") @db.Timestamptz
+  especialidad String
+  pendienteConfirmacion Boolean @default(false) @map("pendiente_confirmacion")
+  estado String @default("pendiente") @db.VarChar(16)
+  intentos Int @default(0)
+  creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz
+  actualizadoEn DateTime @default(now()) @map("actualizado_en") @db.Timestamptz
+  enviadoEn DateTime? @map("enviado_en") @db.Timestamptz
+  cita Cita @relation(fields: [citaId], references: [id], onDelete: Restrict)
+  @@index([estado, actualizadoEn], map: "notificacion_cita_pendiente_idx")
+  @@map("notificacion_cita")
 }
 
 model Consulta {
@@ -285,4 +327,24 @@ model RecetaItem {
   consulta Consulta @relation(fields: [consultaId], references: [id], onDelete: Restrict)
   @@unique([consultaId, orden])
   @@map("receta_item")
+}
+
+
+model Cobro {
+  id Int @id @default(autoincrement())
+  pacienteId Int @map("paciente_id")
+  concepto String @db.VarChar(160)
+  montoCentimos Int @map("monto_centimos")
+  estado String @default("pendiente") @db.VarChar(16)
+  creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz
+  creadoPor Int @map("creado_por")
+  pagadoEn DateTime? @map("pagado_en") @db.Timestamptz
+  pagadoPor Int? @map("pagado_por")
+  metodoPago String? @map("metodo_pago") @db.VarChar(20)
+  referencia String? @db.VarChar(100)
+  paciente Paciente @relation(fields: [pacienteId], references: [id])
+  creador Usuario @relation("CobroCreadoPor", fields: [creadoPor], references: [id])
+  cajero Usuario? @relation("CobroPagadoPor", fields: [pagadoPor], references: [id])
+  @@index([pacienteId, creadoEn])
+  @@map("cobro")
 }

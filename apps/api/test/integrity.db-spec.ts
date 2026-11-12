@@ -345,15 +345,16 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
         },
       }),
     ).rejects.toThrow();
-    await db.consulta.update({
-      where: { id: consultation.id },
-      data: {
-        estado: 'anulado',
-        motivoAnulacion: 'Correccion ficticia',
-        anuladoPor: doctorUserId,
-        anuladoEn: new Date(),
-      },
-    });
+    await request(app.getHttpServer()).post(`/api/consultations/${consultation.id}/annul`).auth(admissionToken, { type: 'bearer' }).send({ motivo: 'Correccion ficticia' }).expect(403);
+    await request(app.getHttpServer()).post(`/api/consultations/${consultation.id}/annul`).auth(doctorToken, { type: 'bearer' }).send({ motivo: '   ' }).expect(400);
+    const annul = () => request(app.getHttpServer()).post(`/api/consultations/${consultation.id}/annul`).auth(doctorToken, { type: 'bearer' }).send({ motivo: 'Correccion ficticia' });
+    const results = await Promise.all([annul(), annul()]);
+    expect(results.map(r => r.status).sort((a, b) => a - b)).toEqual([200, 409]);
+    const saved = await db.consulta.findUniqueOrThrow({ where: { id: consultation.id } });
+    expect(saved.anuladoPor).toBe(doctorUserId);
+    expect(saved.motivo).toBe('Consulta ficticia sin cita');
+    expect(saved.motivoAnulacion).toBe('Correccion ficticia');
+    expect(await db.bitacoraAuditoria.count({ where: { accion: 'ANNUL_CONSULTATION', recurso: `consultations/${consultation.id}` } })).toBe(1);
     await expect(
       db.consulta.delete({ where: { id: consultation.id } }),
     ).rejects.toThrow();
@@ -442,6 +443,38 @@ describe('PostgreSQL migrations and patient flow (isolated schema)', () => {
       data: { estado: 'cancelada' },
     });
     await reserve().expect(201);
+  });
+
+  it('serializes rescheduling against reservations, releases old slots and rolls back failed auditing', async () => {
+    const original = '2099-01-16T08:00:00-05:00';
+    const target = '2099-01-16T08:20:00-05:00';
+    const reserve = (inicio: string) => request(app.getHttpServer()).post('/api/agenda/appointments').auth(admissionToken, { type: 'bearer' }).send({ pacienteId: patientId, medicoId: doctorId, inicio });
+    const first = await reserve(original).expect(201);
+    const change = (action: string, data = {}) => request(app.getHttpServer()).post(`/api/agenda/appointments/${first.body.id}/${action}`).auth(admissionToken, { type: 'bearer' }).send(action === 'reschedule' ? { motivo: 'Cambio solicitado', ...data } : data);
+    const results = await Promise.all([change('reschedule', { inicio: target }), reserve(target)]);
+    expect(results.map(r => r.status).sort((a, b) => a - b)).toEqual(results[0].status === 200 ? [200, 409] : [201, 409]);
+    if (results[0].status === 409) {
+      expect((await db.cita.findUniqueOrThrow({ where: { id: first.body.id } })).fechaHoraInicio).toEqual(new Date(original));
+      await request(app.getHttpServer()).post(`/api/agenda/appointments/${results[1].body.id}/cancel`).auth(admissionToken, { type: 'bearer' }).send({}).expect(200);
+      await change('reschedule', { inicio: target }).expect(200);
+    }
+    await reserve(original).expect(201);
+    const doctor = await db.medico.findUniqueOrThrow({ where: { id: doctorId } });
+    const available = () => request(app.getHttpServer()).get(`/api/agenda/availability?fecha=2099-01-16&especialidadId=${doctor.especialidadId}`).auth(admissionToken, { type: 'bearer' });
+    expect((await available().expect(200)).body.turnos.map((t: { inicio: string }) => t.inicio)).not.toContain(new Date(target).toISOString());
+    await db.$executeRawUnsafe(`CREATE FUNCTION reject_change_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.accion IN ('CANCEL_CITA', 'RESCHEDULE_CITA') THEN RAISE EXCEPTION 'Test audit failure'; END IF; RETURN NEW; END; $$`);
+    await db.$executeRawUnsafe('CREATE TRIGGER test_change_audit BEFORE INSERT ON bitacora_auditoria FOR EACH ROW EXECUTE FUNCTION reject_change_audit()');
+    try {
+      await change('cancel').expect(500);
+      await change('reschedule', { inicio: '2099-01-16T08:40:00-05:00' }).expect(500);
+      expect(await db.cita.findUniqueOrThrow({ where: { id: first.body.id } })).toMatchObject({ estado: 'reprogramada', fechaHoraInicio: new Date(target) });
+    } finally {
+      await db.$executeRawUnsafe('DROP TRIGGER test_change_audit ON bitacora_auditoria');
+      await db.$executeRawUnsafe('DROP FUNCTION reject_change_audit()');
+    }
+    await change('cancel').expect(200);
+    expect((await available().expect(200)).body.turnos.map((t: { inicio: string }) => t.inicio)).toContain(new Date(target).toISOString());
+    await reserve(target).expect(201);
   });
 
   it('lists only eligible doctors in the scheduling catalog', async () => {

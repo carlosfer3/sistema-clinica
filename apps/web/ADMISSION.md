@@ -2,13 +2,13 @@
 
 Desde `apps/web`, instalar dependencias con `npm.cmd ci`, copiar `.env.example` a `.env.local` y ejecutar `npm.cmd run dev`. `VITE_API_URL` apunta a la API con el prefijo `/api` (por defecto `http://localhost:3000/api`). El `CORS_ORIGIN` del backend debe coincidir con el origen de la web.
 
-El acceso usa `POST /api/auth/login` y comprueba el rol actual con `GET /api/auth/me`. La vista de admisión requiere `admision`; las cuentas `enfermeria` acceden a su propia pantalla de evaluación previa. El backend conserva sus propias restricciones. El token se guarda únicamente en memoria: cerrar sesión o recargar la página lo descarta. No hay recuperación de contraseña ni creación de cuentas desde esta pantalla.
+El acceso usa `POST /api/auth/login` y comprueba el rol actual con `GET /api/auth/me`. La vista de admisión requiere `admision`; las cuentas `enfermeria` acceden a su propia pantalla de evaluación previa. El backend conserva sus propias restricciones. La sesión del personal se conserva en `sessionStorage` durante la pestaña y se revalida con la API al recargar. Cerrar sesión o recibir 401 elimina el token; no se guardan contraseñas. No hay recuperación de contraseña ni creación de cuentas desde esta pantalla.
 
 El flujo de agenda permite buscar pacientes existentes, consultar especialidades y médicos con horarios habilitados (`GET /api/agenda/catalog`), filtrar disponibilidad por fecha y reservar una cita presencial. Los horarios se muestran siempre en `America/Lima`, independientemente de la zona del equipo. El motivo es opcional y el canal de solicitud puede ser presencial o telefónico.
 
 Antes de confirmar se muestra el paciente, médico, consultorio y horario. Una respuesta 409 elimina la selección y actualiza los turnos; una respuesta 401 descarta la sesión y los datos de la pantalla. No se reintentan automáticamente las reservas: ante un fallo de conexión o del servidor, el resultado puede ser incierto y se pide verificarlo antes de volver a reservar. Cambiar los filtros invalida los turnos anteriores. El botón de confirmación y la salida se deshabilitan mientras se envía una reserva.
 
-El registro de pacientes está disponible en **Reservar cita → Registrar nuevo paciente**. La interfaz todavía no permite reprogramar, cancelar ni administrar horarios. Si no hay médicos con horarios, cargar los datos ficticios siguiendo el README de la raíz; no se crean automáticamente desde la web.
+El registro de pacientes está disponible en **Reservar cita → Registrar nuevo paciente**. En **Citas del día** se puede reprogramar con motivo obligatorio y disponibilidad del mismo médico, cancelar y registrar llegada mediante modales. La administración de horarios sigue pendiente. Si no hay médicos con horarios, cargar los datos ficticios siguiendo el README de la raíz; no se crean automáticamente desde la web.
 
 ## Registro de pacientes desde admisión
 
@@ -45,3 +45,16 @@ Son obligatorios temperatura, presión sistólica/diastólica, frecuencia cardí
 Al guardar, se envía una única petición `POST /agenda/appointments/:id/vital-signs`; se bloquean formulario, salida y regreso mientras está pendiente. El éxito devuelve la lista a la primera página y confirma la preparación completada; la API retira al paciente de pendientes. Un 400 conserva las mediciones para corregirlas; 404/409 actualizan la lista sin sobrescribir; 401 descarta sesión y formulario; los fallos de red no reintentan automáticamente y obligan a actualizar pendientes antes de seleccionar otra cita. Volver a la lista descarta el borrador.
 
 Enfermería no consulta el perfil clínico, antecedentes, indicaciones, recetas, resultados ni evaluaciones anteriores. Los datos y el token permanecen en memoria. Pruebas: `npm.cmd run test:e2e -- nursing`; se usa API simulada y no sustituye la validación integrada con PostgreSQL.
+
+
+### Reprogramar y cancelar citas (HU05)
+
+En **Citas del día**, seleccionar la fecha de la cita y usar **Reprogramar** o **Cancelar cita**. Ambas acciones requieren confirmación. La reprogramación consulta turnos disponibles de una nueva fecha en Lima y conserva el paciente, el médico y el ID de la cita. Solo se permite un turno futuro completo distinto al original. Al confirmar se revalida disponibilidad; si otro usuario ocupó el turno, se conserva la cita original y se solicita una nueva selección. Cancelar cambia el estado sin borrar el registro y libera el turno.
+
+Solo admisión puede modificar citas programadas, confirmadas o reprogramadas, sin llegada, preparación, evaluación ni consulta registradas. Las citas cerradas no se modifican. Una cita pasada que siga en un estado modificable puede cancelarse o moverse a un turno futuro. No se aplica un plazo de anticipación adicional.
+
+API: `POST /api/agenda/appointments/:id/reschedule` con `{ "inicio": "2099-01-09T08:20:00-05:00" }`; `POST /api/agenda/appointments/:id/cancel` con `{}`. Respuestas 200 con el contrato `Appointment`; 400 para entrada inválida, 404 si no existe la cita y 409 para estado incompatible o turno ocupado. Se rechazan campos adicionales. La cancelación repetida devuelve 409. Ambas operaciones bloquean la cita; la reprogramación también usa el bloqueo del médico compartido con reservas. El cambio y la auditoría se guardan juntos, incluyendo horarios y estado anteriores. No requieren migraciones nuevas.
+
+Durante el guardado se bloquean navegación, sesión y doble envío. Los errores de conexión no reintentan la escritura; se actualiza la lista para comprobar el resultado. No se envían notificaciones al paciente en este incremento.
+
+Validación del incremento (11/11/2026): build y lint de API/web correctos; 285 pruebas HTTP con persistencia simulada aprobadas (`npm.cmd run test:e2e -- --maxWorkers=2`, API) y 15 pruebas de navegador aprobadas (`npm.cmd run test:e2e -- daily-appointments.spec.ts --workers=2 --reporter=line`, web), incluyendo confirmaciones, conflictos, doble envío, conexión incierta y ancho móvil. Playwright utiliza API simulada. Se agregó una prueba PostgreSQL de concurrencia entre reserva/reprogramación, liberación de horarios y rollback ante fallo de auditoría en `integrity.db-spec.ts`; su ejecución quedó pendiente porque `localhost:5433` no responde. El flujo con web, API y PostgreSQL reales y el cierre de DoD siguen pendientes.

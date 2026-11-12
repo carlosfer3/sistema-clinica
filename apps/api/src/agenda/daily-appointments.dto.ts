@@ -1,7 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { EstadoCita } from '@prisma/client';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -13,6 +14,18 @@ import {
 import { NursingQueueDto } from './nursing-queue.dto.js';
 
 export class DailyAppointmentsDto extends NursingQueueDto {
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  @ApiPropertyOptional({
+    type: Boolean,
+    description:
+      'Todas las solicitudes futuras pendientes del portal, sin limitar al día.',
+  })
+  pendientesPortal?: boolean;
+
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
   @IsDateString({ strict: true })

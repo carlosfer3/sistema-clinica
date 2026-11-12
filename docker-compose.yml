@@ -1,4 +1,63 @@
 services:
+  migrate:
+    build:
+      context: ./apps/api
+      target: tooling
+    profiles: [app]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_password_123}@postgres:5432/${POSTGRES_DB:-clinica_san_rafael}?schema=public
+    command: ["sh", "-c", "npm run db:migrate && npm run db:seed:cie10"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [clinica_network]
+
+  api:
+    build:
+      context: ./apps/api
+      target: runtime
+    profiles: [app]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_password_123}@postgres:5432/${POSTGRES_DB:-clinica_san_rafael}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-}
+      PORT: 3000
+      CORS_ORIGIN: http://localhost:${WEB_PORT:-8080}
+      REMINDERS_ENABLED: ${REMINDERS_ENABLED:-false}
+      NOTIFICATIONS_ENABLED: ${NOTIFICATIONS_ENABLED:-false}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURE: "false"
+    ports: ["127.0.0.1:${API_PORT:-3000}:3000"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [clinica_network]
+
+  web:
+    build: ./apps/web
+    profiles: [app]
+    restart: unless-stopped
+    ports: ["127.0.0.1:${WEB_PORT:-8080}:80"]
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [clinica_network]
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    networks:
+      - clinica_network
   postgres:
     image: postgres:16-alpine
     container_name: clinica_postgres

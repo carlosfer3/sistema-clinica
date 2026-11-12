@@ -50,7 +50,86 @@ const evaluation = {
   observaciones: nullable(text),
 };
 
+const charge = {
+  id: integer,
+  concepto: text,
+  montoCentimos: integer,
+  estado: { type: 'string', enum: ['pendiente', 'pagado'] } as SchemaObject,
+  creadoEn: instant,
+  pagadoEn: nullable(instant),
+  metodoPago: nullable(text),
+  referencia: nullable(text),
+};
 export const responseSchemas: Record<string, SchemaObject> = {
+  Charge: object(charge),
+  BillingPatient: object({ ...identity, numeroDocumento: text }),
+  Charges: object({
+    cobros: array(object({ ...charge, paciente: ref('BillingPatient') })),
+    hayMas: { type: 'boolean' },
+    pagina: integer,
+    moneda: { type: 'string', enum: ['PEN'] },
+  }),
+  PatientPayments: object({
+    cobros: array(ref('Charge')),
+    hayMas: { type: 'boolean' },
+    pagina: integer,
+    moneda: { type: 'string', enum: ['PEN'] },
+    saldoPendienteCentimos: integer,
+    cantidadPendientes: integer,
+  }),
+  ChargeReceipt: object({
+    ...charge,
+    moneda: { type: 'string', enum: ['PEN'] },
+    tipo: text,
+  }),
+  PortalAppointments: object({
+    citas: array(
+      object({
+        id: integer,
+        inicio: instant,
+        fin: instant,
+        estado: text,
+        modalidad: text,
+        llegadaEn: nullable(instant),
+        medico: object(identity),
+        especialidad: object({ id: integer, nombre: text }),
+      }),
+    ),
+    total: integer,
+    pagina: integer,
+    hayMas: { type: 'boolean' },
+  }),
+  PortalHistory: object({
+    consultas: array(
+      object({
+        id: integer,
+        fechaHora: instant,
+        motivo: text,
+        indicaciones: nullable(text),
+        estado: text,
+        motivoAnulacion: nullable(text),
+        medico: object({
+          id: integer,
+          usuario: object(names),
+          especialidad: object({ id: integer, nombre: text }),
+        }),
+        diagnosticos: array(object({ codigo: text, descripcion: text })),
+        recetaItems: array(
+          object({
+            id: integer,
+            medicamento: text,
+            dosis: text,
+            via: text,
+            frecuencia: text,
+            duracion: text,
+            indicaciones: nullable(text),
+          }),
+        ),
+      }),
+    ),
+    pagina: integer,
+    hayMas: { type: 'boolean' },
+  }),
   Error: object(
     {
       statusCode: integer,
@@ -168,9 +247,20 @@ export const responseSchemas: Record<string, SchemaObject> = {
     medicoId: integer,
     fechaHoraInicio: instant,
     fechaHoraFin: instant,
-    estado: { type: 'string', enum: ['programada'] },
-    canalOrigen: { type: 'string', enum: ['presencial', 'telefono'] },
-    modalidad: { type: 'string', enum: ['presencial'] },
+    estado: {
+      type: 'string',
+      enum: [
+        'pendiente_confirmacion',
+        'programada',
+        'confirmada',
+        'reprogramada',
+        'cancelada',
+        'atendida',
+        'no_asistio',
+      ],
+    },
+    canalOrigen: { type: 'string', enum: ['presencial', 'telefono', 'portal'] },
+    modalidad: { type: 'string', enum: ['presencial', 'virtual'] },
   }),
   Arrival: object({
     id: integer,
@@ -231,6 +321,7 @@ export const responseSchemas: Record<string, SchemaObject> = {
         estado: {
           type: 'string',
           enum: [
+            'pendiente_confirmacion',
             'programada',
             'confirmada',
             'reprogramada',

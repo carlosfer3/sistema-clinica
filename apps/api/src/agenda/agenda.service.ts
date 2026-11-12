@@ -55,7 +55,107 @@ export class AgendaService {
     };
   }
 
-  async create(dto: CreateAppointmentDto, actorId: number, ip?: string) {
+  async reschedule(
+    id: number,
+    inicio: string,
+    actorId: number,
+    ip?: string,
+    ownerUserId?: number,
+    motivo?: string,
+  ) {
+    return this.create(
+      { inicio, motivo: motivo?.trim() } as CreateAppointmentDto,
+      actorId,
+      ip,
+      id,
+      ownerUserId,
+    );
+  }
+
+  private async mutableAppointment(
+    tx: import('@prisma/client').Prisma.TransactionClient,
+    id: number,
+    ownerUserId?: number,
+  ) {
+    await tx.$queryRaw`SELECT id FROM cita WHERE id = ${id} FOR UPDATE`;
+    const appointment = await tx.cita.findUnique({
+      where: {
+        id,
+        ...(ownerUserId === undefined
+          ? {}
+          : { paciente: { usuarioId: ownerUserId } }),
+      },
+      include: {
+        consulta: { select: { id: true } },
+        evaluacionPrevia: { select: { id: true } },
+      },
+    });
+    if (!appointment) throw new NotFoundException('Appointment not found');
+    if (
+      ![
+        'pendiente_confirmacion',
+        'programada',
+        'confirmada',
+        'reprogramada',
+      ].includes(appointment.estado) ||
+      appointment.llegadaEn ||
+      appointment.preparacionCompletadaEn ||
+      appointment.consulta ||
+      appointment.evaluacionPrevia
+    ) {
+      throw new ConflictException(
+        'Appointment cannot be changed after arrival or closure',
+      );
+    }
+    return appointment;
+  }
+
+  async cancel(id: number, actorId: number, ip?: string, ownerUserId?: number) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const previous = await this.mutableAppointment(tx, id, ownerUserId);
+        const result = await tx.cita.update({
+          where: { id },
+          data: { estado: 'cancelada' },
+          select: {
+            id: true,
+            pacienteId: true,
+            medicoId: true,
+            fechaHoraInicio: true,
+            fechaHoraFin: true,
+            estado: true,
+            canalOrigen: true,
+            modalidad: true,
+          },
+        });
+        await tx.bitacoraAuditoria.create({
+          data: {
+            usuarioId: actorId,
+            accion: 'CANCEL_CITA',
+            detalles: JSON.stringify({
+              estadoAnterior: previous.estado,
+              inicio: previous.fechaHoraInicio,
+              fin: previous.fechaHoraFin,
+            }),
+            recurso: `agenda/appointments/${id}`,
+            ipOrigen: ip,
+          },
+        });
+        return result;
+      },
+      { isolationLevel: 'ReadCommitted' },
+    );
+  }
+
+  async create(
+    dto: Omit<CreateAppointmentDto, 'canalOrigen'> & {
+      canalOrigen: 'presencial' | 'telefono' | 'portal';
+    },
+    actorId: number,
+    ip?: string,
+    rescheduleId?: number,
+    ownerUserId?: number,
+  ) {
     const start = new Date(dto.inicio);
     // Shift the instant to Lima wall-clock components, independent of server TZ.
     const local = new Date(start.getTime() - 5 * 3600000);
@@ -63,6 +163,26 @@ export class AgendaService {
     const weekday = local.getUTCDay() || 7;
     return this.prisma.$transaction(
       async (tx) => {
+        let previous:
+          Awaited<ReturnType<AgendaService['mutableAppointment']>> | undefined;
+        if (rescheduleId !== undefined) {
+          previous = await this.mutableAppointment(
+            tx,
+            rescheduleId,
+            ownerUserId,
+          );
+          if (previous.fechaHoraInicio.getTime() === start.getTime())
+            throw new BadRequestException('Choose a different slot');
+          dto = {
+            inicio: dto.inicio,
+            medicoId: previous.medicoId,
+            pacienteId: previous.pacienteId,
+            canalOrigen:
+              previous.canalOrigen === 'portal'
+                ? 'presencial'
+                : previous.canalOrigen,
+          };
+        }
         // Serialize reservations for a doctor across API processes. Under READ
         // COMMITTED, the overlap query sees the preceding reservation's commit.
         await tx.$queryRaw`SELECT id FROM medico WHERE id = ${dto.medicoId} FOR UPDATE`;
@@ -107,6 +227,7 @@ export class AgendaService {
         const overlap = await tx.cita.findFirst({
           where: {
             medicoId: dto.medicoId,
+            id: rescheduleId === undefined ? undefined : { not: rescheduleId },
             estado: { not: 'cancelada' },
             fechaHoraInicio: { lt: end },
             fechaHoraFin: { gt: start },
@@ -117,7 +238,7 @@ export class AgendaService {
           throw new ConflictException(
             'Appointment slot is no longer available',
           );
-        const appointment = await tx.cita.create({
+        const appointmentData = {
           data: {
             pacienteId: dto.pacienteId,
             medicoId: dto.medicoId,
@@ -127,6 +248,9 @@ export class AgendaService {
             canalOrigen: dto.canalOrigen,
             modalidad: 'presencial',
             creadoPor: actorId,
+            ...(dto.canalOrigen === 'portal'
+              ? { estado: 'pendiente_confirmacion' as const }
+              : {}),
           },
           select: {
             id: true,
@@ -138,16 +262,110 @@ export class AgendaService {
             canalOrigen: true,
             modalidad: true,
           },
-        });
+        } satisfies import('@prisma/client').Prisma.CitaCreateArgs;
+        const appointment =
+          rescheduleId === undefined
+            ? await tx.cita.create(appointmentData)
+            : await tx.cita.update({
+                where: { id: rescheduleId },
+                data: {
+                  fechaHoraInicio: start,
+                  fechaHoraFin: end,
+                  estado:
+                    ownerUserId !== undefined ||
+                    previous?.estado === 'pendiente_confirmacion'
+                      ? 'pendiente_confirmacion'
+                      : 'reprogramada',
+                },
+                select: appointmentData.select,
+              });
         await tx.bitacoraAuditoria.create({
           data: {
             usuarioId: actorId,
-            accion: 'CREATE_CITA',
+            accion:
+              rescheduleId === undefined ? 'CREATE_CITA' : 'RESCHEDULE_CITA',
+            ...(previous
+              ? {
+                  detalles: JSON.stringify({
+                    estadoAnterior: previous.estado,
+                    motivoReprogramacion: dto.motivo,
+                    inicioAnterior: previous.fechaHoraInicio,
+                    finAnterior: previous.fechaHoraFin,
+                    inicio: start,
+                    fin: end,
+                  }),
+                }
+              : {}),
             recurso: `agenda/appointments/${appointment.id}`,
             ipOrigen: ip,
           },
         });
         return appointment;
+      },
+      { isolationLevel: 'ReadCommitted' },
+    );
+  }
+
+  async confirm(id: number, actorId: number, ip?: string) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM cita WHERE id = ${id} FOR UPDATE`;
+        const appointment = await tx.cita.findUnique({
+          where: { id },
+          include: {
+            consulta: { select: { id: true } },
+            evaluacionPrevia: { select: { id: true } },
+          },
+        });
+        if (!appointment) throw new NotFoundException('Appointment not found');
+        if (
+          appointment.canalOrigen !== 'portal' ||
+          appointment.fechaHoraInicio.getTime() <= Date.now() ||
+          appointment.llegadaEn ||
+          appointment.preparacionCompletadaEn ||
+          appointment.consulta ||
+          appointment.evaluacionPrevia ||
+          !['pendiente_confirmacion', 'confirmada'].includes(appointment.estado)
+        ) {
+          throw new ConflictException(
+            'Appointment is not an eligible portal request',
+          );
+        }
+        const select = {
+          id: true,
+          pacienteId: true,
+          medicoId: true,
+          fechaHoraInicio: true,
+          fechaHoraFin: true,
+          estado: true,
+          canalOrigen: true,
+          modalidad: true,
+        } as const;
+        if (appointment.estado === 'confirmada')
+          return tx.cita.findUniqueOrThrow({ where: { id }, select });
+        const doctor = await tx.medico.findFirst({
+          where: {
+            id: appointment.medicoId,
+            usuario: { activo: true, rol: 'medico' },
+          },
+          select: { id: true },
+        });
+        if (!doctor)
+          throw new ConflictException('Doctor is no longer available');
+        const result = await tx.cita.update({
+          where: { id },
+          data: { estado: 'confirmada' },
+          select,
+        });
+        await tx.bitacoraAuditoria.create({
+          data: {
+            usuarioId: actorId,
+            accion: 'CONFIRM_CITA',
+            recurso: `agenda/appointments/${id}`,
+            ipOrigen: ip,
+          },
+        });
+        return result;
       },
       { isolationLevel: 'ReadCommitted' },
     );
@@ -333,12 +551,17 @@ export class AgendaService {
     );
     const rows = await this.prisma.cita.findMany({
       where: {
-        fechaHoraInicio: {
-          gte: start,
-          lt: new Date(start.getTime() + 86400000),
-        },
+        fechaHoraInicio: query.pendientesPortal
+          ? { gt: new Date() }
+          : {
+              gte: start,
+              lt: new Date(start.getTime() + 86400000),
+            },
         medicoId: query.medicoId,
-        estado: query.estado,
+        estado: query.pendientesPortal
+          ? 'pendiente_confirmacion'
+          : query.estado,
+        ...(query.pendientesPortal ? { canalOrigen: 'portal' as const } : {}),
       },
       select: {
         id: true,

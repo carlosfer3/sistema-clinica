@@ -1,5 +1,6 @@
 import {
   Body,
+  HttpCode,
   Controller,
   Get,
   Ip,
@@ -16,6 +17,7 @@ import { ArrivalParamsDto } from '../agenda/arrival-params.dto.js';
 import {
   CreateConsultationDto,
   DiagnosisSearchDto,
+  AnnulConsultationDto,
 } from './consultation.dto.js';
 import { ConsultationsService } from './consultations.service.js';
 
@@ -23,6 +25,23 @@ import { ConsultationsService } from './consultations.service.js';
 @Controller('consultations')
 export class ConsultationsController {
   constructor(private readonly consultations: ConsultationsService) {}
+
+  @Get()
+  @Roles('medico')
+  @ApiContract('Consultar últimas 50 consultas propias', 'Consultation', { array: true })
+  list(@Req() req: AuthRequest, @Ip() ip: string) {
+    return this.consultations.list(req.user!.id, ip);
+  }
+
+  @Post(':id/annul')
+  @HttpCode(200)
+  @Roles('medico')
+  @ApiBody({ type: AnnulConsultationDto })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiContract('Anular consulta propia conservando evidencia', 'Consultation', { errors: { 400: 'Motivo o ID inválido.', 404: 'Consulta no accesible.', 409: 'Consulta ya anulada.' } })
+  annul(@Param() params: ArrivalParamsDto, @Body() dto: AnnulConsultationDto, @Req() req: AuthRequest, @Ip() ip: string) {
+    return this.consultations.annul(params.id, dto.motivo, req.user!.id, ip);
+  }
 
   @ApiContract('Consultar catálogo CIE-10', 'DiagnosisCode', {
     array: true,

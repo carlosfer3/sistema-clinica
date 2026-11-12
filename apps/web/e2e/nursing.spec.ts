@@ -7,7 +7,7 @@ async function login(page: Page) {
   await page.route('**/api/auth/me', route => route.fulfill({ json: { id: 7, rol: 'enfermeria' } }))
   await page.goto('/'); await page.getByLabel('Usuario', { exact: true }).fill('demo.enfermeria'); await page.getByLabel('Contraseña', { exact: true }).fill('fictitious-password'); await page.getByRole('button', { name: 'Iniciar sesión' }).click()
 }
-async function select(page: Page) { await page.getByRole('button', { name: 'Registrar signos vitales', exact: true }).click() }
+async function select(page: Page) { await page.getByRole('button', { name: 'Evaluar', exact: true }).click() }
 async function fill(page: Page) {
   await page.getByLabel('Temperatura (°C)', { exact: true }).fill('36.5')
   await page.getByLabel('Presión sistólica (mmHg)', { exact: true }).fill('120')
@@ -30,7 +30,7 @@ test('routes nursing to its queue, records measurements and removes the complete
   await page.getByRole('button', { name: 'Guardar evaluación' }).click(); await expect(page.getByRole('status').filter({ hasText: 'Evaluación registrada para' })).toContainText('Evaluación registrada para Paciente Prueba')
   await expect(page.getByText('No hay pacientes pendientes de evaluación en esta página.')).toBeVisible(); expect(writes).toBe(1)
   expect(requested.every(path => ['/api/auth/login', '/api/auth/me', '/api/agenda/nursing-queue', '/api/agenda/appointments/12/vital-signs'].includes(path))).toBe(true)
-  expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0])
+  expect(await page.evaluate(() => [localStorage.length, sessionStorage.getItem('siges.staff.token')])).toEqual([0, 'nursing-test-token'])
 })
 test('blocks missing or out-of-range measurements before sending', async ({ page }) => {
   let writes = 0; await page.route('**/api/agenda/nursing-queue?*', route => route.fulfill({ json: queue() })); await page.route('**/api/agenda/appointments/12/vital-signs', route => { writes++; return route.fulfill({ status: 201, json: {} }) })
@@ -43,7 +43,7 @@ test('prevents duplicate saves and logout while the evaluation is pending', asyn
   await page.route('**/api/agenda/nursing-queue?*', route => route.fulfill({ json: queue() }))
   await page.route('**/api/agenda/appointments/12/vital-signs', async route => { writes++; await gate; await route.fulfill({ status: 201, json: {} }) })
   await login(page); await select(page); await fill(page); await page.getByRole('button', { name: 'Guardar evaluación' }).click()
-  await expect(page.getByRole('button', { name: 'Guardando evaluación…' })).toBeDisabled(); await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeDisabled(); await expect(page.getByRole('button', { name: 'Volver a pendientes' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Guardando evaluación…' })).toBeDisabled(); await expect(page.locator('.session-actions button')).toBeDisabled(); await expect(page.getByRole('button', { name: 'Volver a pendientes' })).toBeDisabled()
   release(); await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeEnabled(); expect(writes).toBe(1)
 })
 test('refreshes a conflicting evaluation without retrying or overwriting', async ({ page }) => {
@@ -62,8 +62,8 @@ test('clears the session and measurements on 401 while saving', async ({ page })
 })
 test('does not retry uncertain writes and requires refreshing the queue', async ({ page }) => {
   let writes = 0; await page.route('**/api/agenda/nursing-queue?*', route => route.fulfill({ json: queue() })); await page.route('**/api/agenda/appointments/12/vital-signs', route => { writes++; return route.abort() })
-  await login(page); await select(page); await fill(page); await page.getByRole('button', { name: 'Guardar evaluación' }).click(); await expect(page.getByRole('alert')).toContainText('No se pudo confirmar'); await expect(page.getByRole('button', { name: 'Registrar signos vitales', exact: true })).toHaveCount(0); expect(writes).toBe(1)
-  await page.getByRole('button', { name: 'Actualizar pendientes' }).click(); await expect(page.getByRole('button', { name: 'Registrar signos vitales', exact: true })).toBeVisible()
+  await login(page); await select(page); await fill(page); await page.getByRole('button', { name: 'Guardar evaluación' }).click(); await expect(page.getByRole('alert')).toContainText('No se pudo confirmar'); await expect(page.getByRole('button', { name: 'Evaluar', exact: true })).toHaveCount(0); expect(writes).toBe(1)
+  await page.getByRole('button', { name: 'Actualizar pendientes' }).click(); await expect(page.getByRole('button', { name: 'Evaluar', exact: true })).toBeVisible()
 })
 test('paginates and shows permission errors without leaking pending patients', async ({ page }) => {
   await page.route('**/api/agenda/nursing-queue?*', route => route.fulfill({ json: queue(new URL(route.request().url()).searchParams.get('pagina') === '2' ? [] : [pending], true) }))

@@ -2,6 +2,9 @@
 .env
 .env.local
 
+# Database backups contain private application data.
+/backups/
+
 # Node
 node_modules/
 dist/

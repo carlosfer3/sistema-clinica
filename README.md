@@ -54,19 +54,23 @@ gantt
 
 ### 📍 Fase actual: **Sprint 1 en implementación (Semanas 9 a 11)**
 
-**Estado revisado al 08/11/2026**, a partir del código y las evidencias disponibles. Según el cronograma, el equipo se encuentra en la semana 10. La documentación del Entregable 1 está disponible; su aprobación académica no está registrada.
+**Estado revisado al 12/11/2026**, a partir del código y las evidencias disponibles. Según el cronograma, el equipo se encuentra en la semana 10. La documentación del Entregable 1 está disponible; su aprobación académica no está registrada.
 
-El incremento actual permite a admisión iniciar sesión, buscar un paciente existente, consultar disponibilidad y confirmar una cita presencial desde la web. El Sprint 1 sigue abierto.
+El incremento actual conecta admisión, enfermería y medicina: registro de pacientes, gestión de citas, llegada, evaluación previa, consulta con receta y lectura de HCE. Incluye además un portal con acceso separado, solicitudes de cita confirmadas por admisión y caja para cobros y pagos en clínica. El Sprint 1 sigue abierto; los avances parciales de M4 y M6 no implican el cierre de esos módulos ni del Sprint 2.
+
+**Preparación de entrega:** anulación clínica, recordatorios, notificaciones y respaldos implementados; catálogo de 15.037 códigos cargado; Dockerfiles y CI preparados. La [matriz de aceptación del Sprint 1](entregables/semana-8/aceptacion-sprint-1.md) reúne las pruebas actuales y los pendientes de Docker, revisión por PR y aceptación del equipo. No se declara cerrado el sprint sin esas evidencias.
 
 | Área | Implementado | Pendiente principal |
 | :--- | :--- | :--- |
 | Seguridad y auditoría (HU17) | Login JWT, control por roles, verificación de cuentas activas y auditoría. | Extender la cobertura a los módulos restantes y validar la DoD. |
 | Pacientes y base de HCE (M1; HU06/HU07 parciales) | Registro y búsqueda por web/API; evaluación de enfermería, consulta médica con CIE-10/receta e HCE cronológica en la web. | Edición clínica de antecedentes/alergias y validación integral de criterios de aceptación y DoD. |
-| Agenda y citas (M2; HU01 parcial) | Horarios, catálogo, disponibilidad y reserva transaccional por API; reserva desde la web de admisión. | Reprogramación, cancelación, administración de horarios, feriados y excepciones. |
-| Laboratorio, facturación, reportes y portal (M3–M6) | Planificados para Sprint 2; sin módulos funcionales implementados. | Implementación y validación. |
-| Infraestructura y entrega | Docker Compose para PostgreSQL y Redis; API y web locales. | Contenedores de aplicaciones, CI/CD y respaldo/restauración. |
+| Agenda y citas (M2; HU01 parcial) | Horarios, catálogo, disponibilidad y reserva transaccional por API; reserva, reprogramación y cancelación desde la web de admisión. | Administración de horarios, feriados y excepciones; validación integrada de HU05. |
+| Caja y cobros (M4 parcial) | Cobros en soles, pagos verificados por caja, saldo y constancias internas para el paciente. | Facturación fiscal, convenios, copagos, pagos parciales y devoluciones. |
+| Portal del paciente (M6 parcial) | Acceso por DNI/correo y contraseña; citas, reserva, reprogramación/cancelación, historial, recetas, perfil, alertas y pagos. | Validación integrada completa, recordatorios automáticos y cierre de DoD. |
+| Laboratorio y reportes (M3 y M5) | Sin flujos funcionales implementados; resultados muestra un estado vacío en el portal. | Implementación y validación en Sprint 2. |
+| Infraestructura y entrega | Respaldos diarios con restauración comprobada; Dockerfiles de API/web, Nginx y workflow de CI preparados. | Ejecutar Docker y Actions, revisión por PR y aceptación. |
 
-> **Alcance acordado de HU04/HU06/HU10:** admisión registra solo datos demográficos y de contacto; enfermería consulta pacientes con llegada registrada y captura signos vitales y observaciones, sin acceso al historial médico; el médico consulta la evaluación previa y la HCE. Las [historias actualizadas](entregables/semana-6/historias-usuario-update.md) incluyen los criterios. La API ya rechaza antecedentes y alergias en el alta de admisión y restringe el perfil clínico al médico; HU04 y HU10 siguen pendientes.
+> **Alcance acordado de HU04/HU06/HU10:** admisión registra solo datos demográficos y de contacto; enfermería consulta pacientes con llegada registrada y captura signos vitales y observaciones, sin acceso al historial médico; el médico consulta la evaluación previa y la HCE. Las [historias actualizadas](entregables/semana-6/historias-usuario-update.md) incluyen los criterios. La API ya rechaza antecedentes y alergias en el alta de admisión y restringe el perfil clínico al médico; HU04 y HU10 cuentan con API e interfaz de enfermería; su aceptación integral y cierre de DoD siguen pendientes.
 
 No se declara ninguna historia terminada hasta completar criterios de aceptación, revisión por PR y validación en contenedores conforme a la DoD. Los modelos de datos por sí solos no constituyen módulos funcionales completos.
 
@@ -78,7 +82,7 @@ No se declara ninguna historia terminada hasta completar criterios de aceptació
 * **Implementado en backend:** conexión Prisma, prefijo `/api`, validación de DTO, CORS configurable, login JWT, permisos por rol y auditoría explícita en servicios y guard. Registro de pacientes sin cuenta de portal, solo con datos demográficos y de contacto, búsqueda por DNI exacto y consulta de ficha. Los hashes nunca se devuelven en la API.
 * **Integridad en PostgreSQL:** migraciones con anulación justificada, bloqueo de borrado físico de consultas, antecedentes y alergias, bitácora append-only y exclusión de horarios solapados por médico. Las restricciones SQL complementan el esquema Prisma.
 * **Interfaz de admisión implementada:** acceso con cuenta de admisión, registro demográfico de pacientes, búsqueda y selección, catálogo de especialidades/médicos, consulta de disponibilidad, confirmación de reserva, listado del día y registro de llegada. Maneja documentos duplicados, turnos ocupados (409) y pérdida de sesión (401). Ver [guía de la interfaz](apps/web/ADMISSION.md).
-* **Pendiente:** reprogramación/cancelación de citas, edición clínica de antecedentes/alergias, catálogo CIE-10 completo, notificaciones, respaldo/restauración y CI/CD. La web incluye evaluación de enfermería, consulta médica y lectura de HCE. Ninguna historia se considera terminada hasta cumplir toda la DoD, revisión por PR y validación en contenedores.
+* **Pendiente:** demostración integrada del navegador con API/PostgreSQL reales, ejecución en Docker y GitHub Actions, revisión por PR y aceptación. La edición clínica de antecedentes/alergias y la administración de horarios siguen fuera del incremento actual. Ver la matriz de aceptación para el alcance por historia.
 
 ---
 
@@ -89,9 +93,9 @@ No se declara ninguna historia terminada hasta completar criterios de aceptació
 | **M1. Historia Clínica Electrónica (HCE)** | Paciente único, antecedentes, consultas CIE-10, recetas, signos vitales y visualización unificada. | Must | **Sprint 1** *(En desarrollo)* |
 | **M2. Agenda y Citas Médicas** | Disponibilidad consolidada de médicos, agendamiento, reprogramación, cancelación y recordatorios. | Must | **Sprint 1** *(En desarrollo)* |
 | **M3. Laboratorio e Imágenes** | Generación de órdenes médicas y registro/consulta de resultados digitales. | Should | **Sprint 2** |
-| **M4. Facturación y Convenios** | Emisión de comprobantes, categorización por convenio (particular, EPS, SOAT) y copagos. | Should | **Sprint 2** |
+| **M4. Facturación y Convenios** | Comprobantes, convenios y copagos. Incremento actual: cobros y pagos en clínica, sin emisión fiscal. | Should | **Sprint 2** *(Implementación parcial)* |
 | **M5. Reportes Gerenciales** | Ocupación de consultorios, tiempos de espera e indicadores de inasistencia. | Could | **Sprint 2** |
-| **M6. Portal del Paciente** | Agendamiento autónomo en línea y vista de citas. | Could | **Sprint 2** |
+| **M6. Portal del Paciente** | Solicitudes de cita, historial, recetas, perfil, alertas y pagos propios. | Could | **Sprint 2** *(Implementación parcial)* |
 
 ---
 
@@ -128,11 +132,11 @@ El sistema adopta una **Arquitectura en Capas con API REST Monolítica Modular**
 
 ### Tecnologías Principales:
 * **Backend implementado:** Node.js, TypeScript, [NestJS](https://nestjs.com/), Prisma ORM, JWT, bcryptjs, class-validator y OpenAPI con Swagger UI.
-* **Frontend:** React, Vite y Tailwind CSS, con interfaz de acceso y agenda para admisión.
+* **Frontend:** React, Vite y Tailwind CSS, con pantallas para admisión, enfermería, medicina, caja y pacientes.
 * **Base de Datos & Cache:** PostgreSQL 16, Redis.
 * **Pruebas:** Vitest y Supertest, incluyendo pruebas de migraciones en un esquema PostgreSQL temporal.
-* **Infraestructura:** Docker Compose para PostgreSQL y Redis. La API y la web se ejecutan localmente.
-* **Arquitectura objetivo (pendiente):** BullMQ, Nginx, Lucide y GitHub Actions. El diagrama anterior representa el diseño objetivo.
+* **Infraestructura:** Compose para PostgreSQL, Redis y Mailpit; perfil `app` con migraciones, catálogo, API y web/Nginx. La ejecución Docker está pendiente en este equipo. Ver [Docker y CI](docs/DOCKER-CI.md).
+* **CI preparado:** GitHub Actions para API, web y contenedores; pendiente de ejecución remota. BullMQ sigue como diseño objetivo: las colas de correo actuales se apoyan en PostgreSQL.
 
 ---
 
@@ -160,6 +164,16 @@ El sistema adopta una **Arquitectura en Capas con API REST Monolítica Modular**
 ---
 
 ## Ejecución local
+
+Para ejecutar todo en contenedores, seguir [Docker y CI](docs/DOCKER-CI.md). Para cargar el catálogo completo de la instantánea pública de RIS Chota desde `apps/api`, ejecutar `npm.cmd run db:seed:cie10`. Son 15.037 categorías/subcategorías con procedencia y SHA-256; ver [alcance del catálogo](apps/api/CIE10.md).
+
+### Respaldo diario y restauración (HU18)
+
+Se implementaron `backup:create`, `backup:verify`, `backup:status` y `backup:install` desde `apps/api`. La tarea Windows `SIGES-SR-Respaldo-Diario` está registrada a las 02:00; requiere sesión iniciada y PostgreSQL disponible. La restauración de la copia automática se verificó en una base temporal: 22 tablas y 915 registros coincidentes. Ver [operación y límites](apps/api/BACKUPS.md) y [evidencia de restauración](entregables/semana-8/pruebas/hu18-respaldo-restauracion.md). Las copias están excluidas de Git.
+
+### Recordatorios de cita por correo (HU02)
+
+Implementado el planificador de recordatorios 24 horas antes de citas programadas, confirmadas o reprogramadas, con persistencia en PostgreSQL, comprobación de cambios de horario y estado, y reintentos controlados. Incluye Mailpit en Compose para capturar correos localmente; no requiere un proveedor externo para la demostración. La activación es explícita mediante `REMINDERS_ENABLED=true`. Ver [configuración, pruebas y límites](apps/api/REMINDERS.md). HU11 también incluye avisos transaccionales de registro, reprogramación, cancelación y confirmación de solicitudes del portal; se habilitan con `NOTIFICATIONS_ENABLED=true`. Ver [guía de notificaciones](apps/api/NOTIFICATIONS.md).
 
 Requisitos: Node.js 24 LTS, npm y Docker Compose. En PowerShell usar `npm.cmd` si la política de scripts impide ejecutar `npm.ps1`. También se puede usar PostgreSQL 16 ya instalado.
 
@@ -195,7 +209,7 @@ npm.cmd run dev
 
 Abrir `http://localhost:5173`. `CORS_ORIGIN` debe coincidir con el origen de la web.
 
-La web usa `VITE_API_URL` (por defecto `http://localhost:3000/api`); copiar `apps/web/.env.example` a `apps/web/.env.local` para cambiarla. Ingresar con una cuenta de admisión existente. El token permanece en memoria y se descarta al cerrar sesión o recargar. Consultar [la guía de admisión](apps/web/ADMISSION.md) para el flujo y sus límites.
+La web usa `VITE_API_URL` (por defecto `http://localhost:3000/api`); copiar `apps/web/.env.example` a `apps/web/.env.local` para cambiarla. El personal accede desde `/`; los pacientes desde `/pacientes/login`, con DNI o correo y contraseña de una cuenta vinculada a su ficha. El alta de pacientes no crea automáticamente una cuenta; consultar la [guía del portal](apps/web/PATIENT-PORTAL.md). La sesión del personal persiste en `sessionStorage` durante la pestaña y se revalida al recargar; cerrar sesión o recibir 401 la elimina. La sesión del paciente permanece en memoria. Consultar [la guía de admisión](apps/web/ADMISSION.md) para el flujo y sus límites.
 
 ### Documentación OpenAPI / Swagger
 
@@ -205,7 +219,7 @@ Con la API iniciada:
 - **Contrato JSON:** [http://localhost:3000/api/openapi.json](http://localhost:3000/api/openapi.json).
 - **Contrato YAML:** [http://localhost:3000/api/openapi.yaml](http://localhost:3000/api/openapi.yaml).
 
-Los 19 endpoints actuales están documentados por módulo, con cuerpos, parámetros, restricciones, respuestas y errores. Las rutas protegidas declaran Bearer JWT y roles permitidos (`x-roles`), derivados del mismo decorador que usa el guard. La documentación es pública y no consulta PostgreSQL para generarse; las operaciones de negocio conservan sus permisos y requieren la base de datos. No se incluyen contraseñas reales, tokens ni hashes.
+Los endpoints actuales están documentados por módulo, con cuerpos, parámetros, restricciones, respuestas y errores. Las rutas protegidas declaran Bearer JWT y roles permitidos (`x-roles`), derivados del mismo decorador que usa el guard. La documentación es pública y no consulta PostgreSQL para generarse; las operaciones de negocio conservan sus permisos y requieren la base de datos. No se incluyen contraseñas reales, tokens ni hashes.
 
 Para probar desde Swagger, ejecutar `POST /api/auth/login` con una cuenta local, copiar `accessToken` y pegarlo en **Authorize** (solo el token). El token no se conserva al recargar. **Try it out** ejecuta operaciones reales contra la API: usar datos ficticios del entorno de desarrollo.
 
@@ -213,7 +227,7 @@ La especificación se genera desde controladores y DTO al iniciar la aplicación
 
 ### Cuentas ficticias de demostración
 
-Desde `apps/api`, definir `DEMO_PASSWORD` en el entorno local (no versionado), con al menos 12 caracteres y hasta 72 bytes UTF-8, y ejecutar `npm.cmd run db:seed:demo` después de aplicar las migraciones. Crea `demo.admision`, `demo.medico`, `demo.medico.pediatria` y `demo.enfermeria` con hash bcrypt. Las cuentas nuevas usan esa contraseña; las existentes conservan su contraseña y sus datos.
+Desde `apps/api`, definir `DEMO_PASSWORD` en el entorno local (no versionado), con al menos 12 caracteres y hasta 72 bytes UTF-8, y ejecutar `npm.cmd run db:seed:demo` después de aplicar las migraciones. Crea `demo.caja`, `demo.admision`, `demo.medico`, `demo.medico.pediatria` y `demo.enfermeria` con hash bcrypt. Las cuentas nuevas usan esa contraseña; las existentes conservan su contraseña y sus datos.
 
 La carga incluye dos especialidades, dos médicos asociados a sus cuentas, dos consultorios y cinco bloques semanales ficticios:
 
@@ -269,7 +283,13 @@ Desde `apps/web`: `npm.cmd run build`, `npm.cmd run lint` y `npm.cmd run test:e2
 
 Las migraciones no corrigen datos históricos incompatibles: si ya existen citas solapadas o anulaciones incompletas, se debe revisar esos datos antes de desplegarlas. En despliegue usar un rol de aplicación sin permisos de superusuario ni DDL; los triggers no protegen frente al administrador de la base de datos.
 
-### Comprobaciones de esta revisión (08/11/2026)
+### Evidencias de validación registradas
+
+La revisión de preparación del 12/11/2026 ejecutó build/lint de API y web, 23 pruebas unitarias, 317 HTTP y 40 de PostgreSQL aprobadas. En navegador se verificaron 83 casos con API simulada (82 en la suite y el adicional de anulación después de ajustar su selector). Detalles y pendientes en la [matriz de aceptación](entregables/semana-8/aceptacion-sprint-1.md). Las cantidades históricas de las guías de incrementos corresponden a versiones anteriores y no deben sumarse.
+
+La validación integrada completa en navegador con API y PostgreSQL reales, la revisión por PR y el cierre de DoD siguen pendientes.
+
+#### Registro histórico del 08/11/2026
 
 | Comprobación | Resultado |
 | :--- | :--- |
@@ -278,7 +298,7 @@ Las migraciones no corrigen datos históricos incompatibles: si ya existen citas
 | Web: `npm.cmd run build` | Compilación correcta. |
 | Web: `npm.cmd run lint` | Sin errores. |
 
-En esta revisión no se ejecutaron `test:db` ni Playwright, ni se verificó el flujo integrado con PostgreSQL. Los resultados anteriores no acreditan la aceptación completa de las historias.
+En la revisión del 08/11/2026 no se ejecutaron `test:db` ni Playwright, ni se verificó el flujo integrado con PostgreSQL. Los resultados anteriores no acreditan la aceptación completa de las historias.
 
 ### Alcance implementado de HU01 y siguientes pasos
 
@@ -310,7 +330,7 @@ Respuestas: 201 con ID, paciente/médico, inicio/fin UTC, estado, canal y modali
 
 Las pruebas de `apps/api/test/integrity.db-spec.ts` verifican dos reservas HTTP simultáneas (201/409), cancelación y nueva reserva, actualización de disponibilidad, validaciones y reversión por fallo de auditoría contra un esquema PostgreSQL temporal. Ejecutar `npm.cmd run test:db` con la base de desarrollo configurada.
 
-Interfaz de admisión implementada: registrar o elegir un paciente, consultar disponibilidad y confirmar la reserva desde la web, listar citas por la fecha seleccionada y registrar llegada de citas de hoy. Quedan pendientes reprogramación/cancelación, feriados y excepciones. La aceptación de HU01 continúa sujeta a la DoD y revisión por PR.
+Interfaz de admisión implementada: registrar o elegir un paciente, consultar disponibilidad y confirmar la reserva desde la web, listar citas por la fecha seleccionada y registrar llegada de citas de hoy. La reprogramación y cancelación también están implementadas (HU05). Quedan pendientes la administración de horarios, feriados y excepciones. La aceptación de HU01 continúa sujeta a la DoD y revisión por PR.
 
 ---
 
@@ -330,7 +350,7 @@ El equipo sigue el estándar **[Conventional Commits](https://www.conventionalco
 ---
 
 ## ⚖️ Marco Legal y Normativo
-* **Requisito del proyecto asociado a la Ley N.° 29733:** auditar lecturas y modificaciones clínicas, restringir el acceso por rol y conservar entradas mediante anulación sustentada. La implementación actual cubre autenticación y pacientes; el resto de la HCE y la revisión integral de cumplimiento siguen pendientes.
+* **Requisito del proyecto asociado a la Ley N.° 29733:** auditar lecturas y modificaciones clínicas, restringir el acceso por rol y conservar entradas mediante anulación sustentada. La implementación incluye controles en pacientes, agenda, evaluación previa, consultas, HCE, portal y cobros; la revisión integral de cumplimiento sigue pendiente.
 
 ### Registro de llegada de pacientes
 
@@ -338,7 +358,7 @@ El equipo sigue el estándar **[Conventional Commits](https://www.conventionalco
 
 Devuelve 200 con `{ id, estado, llegadaEn }`; 400 para ID/cuerpo inválido o cita de otro día, 404 para cita inexistente y 409 para modalidad o estado incompatible. Una repetición válida conserva la primera hora y no duplica auditoría. La actualización y `REGISTER_ARRIVAL` se guardan en una transacción con bloqueo de la cita; si falla la auditoría se revierte la llegada. La cita no pasa a `atendida`. El campo ya existe en las migraciones, sin cambios de esquema.
 
-Este incremento implementa la API de llegada; la interfaz de admisión, la interfaz de pendientes de enfermería (HU04) y el registro de signos vitales (HU10) siguen pendientes.
+La llegada está integrada en la web de admisión y alimenta la bandeja de enfermería (HU04) y el registro de signos vitales (HU10), también disponibles en la web.
 
 ### Lista de evaluación previa de enfermería (HU04)
 
@@ -348,7 +368,7 @@ Parámetros opcionales: `pagina` (1–10000, por defecto 1) y `limite` (1–100,
 
 **Migración necesaria:** desde `apps/api`, ejecutar `npm.cmd run db:migrate` y `npm.cmd run prisma:generate`. La migración `20261108000100_nursing_preparation` agrega `preparacionCompletadaEn`, separado de llegada y estado de la cita. Una preparación completada requiere una llegada y no puede ser anterior a ella. Los datos existentes quedan con preparación pendiente; no se infiere una evaluación completada a partir de otros registros. HU10 registra los signos vitales y completa este campo en la misma transacción.
 
-Este incremento entrega la API de HU04. La interfaz de enfermería y su selección visual de paciente siguen pendientes; no se declara la historia terminada.
+HU04 dispone de API y pantalla de enfermería con selección de paciente; su aceptación integral y cierre de DoD siguen pendientes.
 
 ### Registro de signos vitales (HU10)
 
@@ -376,7 +396,7 @@ Devuelve 201 con la evaluación guardada. El paciente se vincula mediante su cit
 
 `GET /api/agenda/appointments/:id/vital-signs` permite únicamente al médico asignado consultar las mediciones, observaciones y autoría de esa cita, con auditoría `READ_VITAL_SIGNS`. Devuelve 404 si no hay evaluación accesible. Enfermería y admisión reciben 403; este endpoint no les da acceso al historial médico.
 
-Aplicar `npm.cmd run db:migrate` y `npm.cmd run prisma:generate` desde `apps/api`. La migración `20261108000200_nursing_vital_signs` crea `evaluacion_previa`, con una entrada por cita y conservación de los datos originales mediante bloqueo de actualización y borrado. Correcciones versionadas quedan fuera de este incremento. La interfaz de captura y la vista médica siguen pendientes.
+Aplicar `npm.cmd run db:migrate` y `npm.cmd run prisma:generate` desde `apps/api`. La migración `20261108000200_nursing_vital_signs` crea `evaluacion_previa`, con una entrada por cita y conservación de los datos originales mediante bloqueo de actualización y borrado. Correcciones versionadas quedan fuera de este incremento. La captura de enfermería y la lectura desde la pantalla médica están implementadas; la validación integrada completa sigue pendiente.
 
 ### Citas del día y llegada desde la web de admisión
 
@@ -392,7 +412,7 @@ Las pruebas HTTP verifican roles, validaciones, selección de campos, fecha de L
 
 ### Interfaz de enfermería
 
-La web admite acceso de admisión y enfermería, comprobando el rol actual en `/auth/me`. Con `demo.enfermeria` se abre **Evaluación previa**: pacientes presentes y pendientes, selección de cita, identificación, formulario de signos vitales y observaciones y confirmación de preparación completada. La API vuelve a verificar todas las precondiciones al guardar. No se muestran controles de admisión ni se consulta el historial médico. La pantalla del médico sigue pendiente.
+La web admite acceso de admisión y enfermería, comprobando el rol actual en `/auth/me`. Con `demo.enfermeria` se abre **Evaluación previa**: pacientes presentes y pendientes, selección de cita, identificación, formulario de signos vitales y observaciones y confirmación de preparación completada. La API vuelve a verificar todas las precondiciones al guardar. No se muestran controles de admisión ni se consulta el historial médico. La pantalla médica permite leer la evaluación previa y registrar la consulta.
 
 Consultar la [guía de acceso y evaluación previa](apps/web/ADMISSION.md) para campos, errores y límites. Las pruebas de navegador incluyen registro, validación, conflictos, paginación, permisos, sesión, doble envío, fallos de conexión y adaptación móvil. La verificación con PostgreSQL real sigue pendiente.
 
@@ -400,10 +420,30 @@ Consultar la [guía de acceso y evaluación previa](apps/web/ADMISSION.md) para 
 
 API implementada: catálogo CIE-10, registro final de consulta con diagnósticos e indicaciones y receta manual opcional de varios medicamentos. Solo el médico asignado puede registrar la consulta de una cita presencial de hoy con llegada y evaluación de enfermería completadas; al guardar, la cita pasa a atendida. Consulta, receta y auditoría son transaccionales. Admisión y enfermería no acceden a estas rutas. Cada medicamento conserva nombre, dosis, vía, frecuencia y duración como textos independientes, sin catálogo de medicamentos en esta versión.
 
-Requiere migración y carga del catálogo. El nuevo `npm.cmd run db:seed:cie10:demo` (desde `apps/api`) carga solo J00 y Z00.0 para demostración, sin sobrescribir descripciones; no equivale al catálogo CIE-10 completo. Ver [contrato, preparación y límites de HU08](apps/api/CONSULTATIONS.md). La HCE cronológica, anulación por API y catálogo completo siguen pendientes.
+Requiere migraciones y carga del catálogo con `npm.cmd run db:seed:cie10` (15.037 códigos de la instantánea versionada de RIS Chota). `db:seed:cie10:demo` conserva el subconjunto de dos códigos para pruebas mínimas. La HCE cronológica y la anulación por API/web están implementadas. Ver [catálogo](apps/api/CIE10.md), [HU08](apps/api/CONSULTATIONS.md) y [HU09](apps/api/CLINICAL-ANNULMENT.md).
 
 La web admite acceso médico y ofrece una bandeja de sus pacientes preparados de hoy mediante `GET /api/agenda/medical-queue`, exclusiva del médico asignado y auditada. **Atender paciente** muestra la evaluación de enfermería y permite registrar motivo, diagnósticos CIE-10, indicaciones y receta manual opcional, con revisión y confirmación antes del guardado definitivo. La cita pasa a atendida y desaparece de pendientes. La interfaz cuenta con pruebas Playwright usando API simulada; la validación integrada con API y PostgreSQL reales sigue pendiente.
 
 Verificación del incremento: compilación y lint correctos; 228 pruebas HTTP con persistencia simulada y 31 pruebas de integración PostgreSQL aprobadas, aplicando todas las migraciones en esquemas temporales. Las migraciones del entorno habitual deben aplicarse por separado.
 
 Verificación de la interfaz HU08: build y lint de API/web correctos; suite de 247 pruebas HTTP y 37 pruebas Playwright aprobadas, más una prueba adicional de rechazo de filtro médico (20 pruebas de bandeja aprobadas). En esta ejecución, las pruebas PostgreSQL no pudieron conectarse a `localhost:5433`; la validación integrada del nuevo flujo sigue pendiente.
+
+
+### Reprogramación y cancelación (HU05)
+
+Admisión puede reprogramar y cancelar desde **Citas del día**, con confirmación y auditoría transaccional. La reprogramación conserva médico/paciente y exige un turno futuro disponible; la cancelación libera el horario sin borrar la cita. Se bloquean cambios tras llegada o atención. Ver [contrato, reglas y límites](apps/web/ADMISSION.md#reprogramar-y-cancelar-citas-hu05). Las notificaciones y el cierre de DoD siguen pendientes.
+
+
+### Portal del paciente: vista inicial e integración
+
+La web abre un portal propio para cuentas activas de rol `paciente` vinculadas a una ficha. El diseño sigue `Untitled.png` y utiliza el logo del proyecto. Incluye citas propias, agendamiento, reprogramación/cancelación, consultas, recetas y perfil. No usa pacientes ni citas ficticias de la imagen. Las rutas `/api/portal/*` resuelven la identidad desde la cuenta autenticada. Ver [acceso, habilitación de cuentas, contratos y límites](apps/web/PATIENT-PORTAL.md). Hay pruebas con PostgreSQL en esquemas aislados para acceso y flujos de citas/pagos; la validación integrada completa del portal y el cierre de DoD de M6 siguen pendientes.
+
+
+### Confirmación de solicitudes y pagos en clínica
+
+Las citas del portal quedan pendientes de confirmación por admisión, que las gestiona desde la bandeja **Solicitudes del portal**. El dashboard incluye **Alertas y recordatorios** y el acceso **Agendar cita** debajo de las próximas citas. El paciente consulta sus cobros y saldo en **Pagos**; caja registra y verifica pagos recibidos en clínica, con constancia interna descargable. Ver [preparación, permisos y alcance](apps/web/PAYMENTS.md). No hay pasarela de cobro en línea ni emisión fiscal en este incremento.
+
+
+### Acceso separado por tipo de usuario
+
+La pantalla inicial `/` queda reservada a trabajadores de la clínica. Los pacientes utilizan `/pacientes/login`, con el nuevo diseño proporcionado y autenticación exclusiva por DNI o correo electrónico y contraseña. Hay enlaces entre las pantallas; cada una valida su rol y usa su endpoint de acceso correspondiente. Ver [guía del portal](apps/web/PATIENT-PORTAL.md).

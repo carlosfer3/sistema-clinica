@@ -30,10 +30,27 @@ describe('OpenAPI contract and Swagger UI', () => {
   });
   const endpoints = [
     ['get', '/api'],
+    ['get', '/api/billing/patients'],
+    ['get', '/api/billing/charges'],
+    ['post', '/api/billing/charges'],
+    ['post', '/api/billing/charges/{id}/settle'],
+    ['get', '/api/portal/payments'],
+    ['get', '/api/portal/payments/{id}/receipt'],
+    ['get', '/api/portal/profile'],
+    ['get', '/api/portal/appointments'],
+    ['get', '/api/portal/history'],
+    ['get', '/api/portal/catalog'],
+    ['get', '/api/portal/availability'],
+    ['post', '/api/portal/appointments'],
+    ['post', '/api/portal/appointments/{id}/reschedule'],
+    ['post', '/api/portal/appointments/{id}/cancel'],
     ['get', '/api/consultations/diagnoses'],
     ['post', '/api/consultations'],
+    ['get', '/api/consultations'],
+    ['post', '/api/consultations/{id}/annul'],
     ['get', '/api/consultations/{id}'],
     ['post', '/api/auth/login'],
+    ['post', '/api/auth/patient-login'],
     ['get', '/api/auth/me'],
     ['get', '/api/patients'],
     ['post', '/api/patients'],
@@ -45,8 +62,11 @@ describe('OpenAPI contract and Swagger UI', () => {
     ['post', '/api/agenda/appointments'],
     ['get', '/api/agenda/appointments'],
     ['post', '/api/agenda/appointments/{id}/arrival'],
+    ['post', '/api/agenda/appointments/{id}/confirm'],
+    ['post', '/api/agenda/appointments/{id}/reschedule'],
+    ['post', '/api/agenda/appointments/{id}/cancel'],
     ['get', '/api/agenda/nursing-queue'],
-      ['get', '/api/agenda/medical-queue'],
+    ['get', '/api/agenda/medical-queue'],
     ['post', '/api/agenda/appointments/{id}/vital-signs'],
     ['get', '/api/agenda/appointments/{id}/vital-signs'],
   ];
@@ -68,7 +88,13 @@ describe('OpenAPI contract and Swagger UI', () => {
         op.responses[
           method === 'post' &&
           !path.endsWith('/login') &&
-          !path.endsWith('/arrival')
+          !path.endsWith('/patient-login') &&
+          !path.endsWith('/arrival') &&
+          !path.endsWith('/reschedule') &&
+          !path.endsWith('/cancel') &&
+          !path.endsWith('/annul') &&
+          !path.endsWith('/confirm') &&
+          !path.endsWith('/settle')
             ? '201'
             : '200'
         ];
@@ -82,7 +108,11 @@ describe('OpenAPI contract and Swagger UI', () => {
     });
     for (const [method, path] of endpoints) {
       const op = operation(method, path);
-      if (path === '/api' || path === '/api/auth/login')
+      if (
+        path === '/api' ||
+        path === '/api/auth/login' ||
+        path === '/api/auth/patient-login'
+      )
         expect(op.security ?? []).toEqual([]);
       else {
         expect(op.security).toEqual([{ bearer: [] }]);

@@ -63,7 +63,7 @@ describe('Demo seed (isolated PostgreSQL schema)', () => {
     expect(await db.horarioMedico.findMany({ orderBy: { id: 'asc' } })).toEqual(
       before,
     );
-    expect(await db.usuario.count()).toBe(4);
+    expect(await db.usuario.count()).toBe(5);
     expect(await db.medico.count()).toBe(2);
     expect(await db.especialidad.count()).toBe(2);
     expect(await db.consultorio.count()).toBe(3);

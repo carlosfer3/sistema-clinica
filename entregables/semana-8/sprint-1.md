@@ -656,21 +656,23 @@ Este flujo corresponde a HU16. La demostración del Sprint 1 usa admisión, enfe
 ---
 
 ### 9. Sprint backlog 1
+
+**Actualización técnica al 12/11/2026:** las 13 historias cuentan con implementación. El estado de aceptación y las evidencias actuales están en la [matriz de aceptación](aceptacion-sprint-1.md). El cierre de DoD requiere todavía ejecutar Docker/Actions, revisión por PR y aceptación del equipo.
 | Historia | Descripción | Responsable | Puntos | Estado |
 | :---: | :--- | :--- | :---: | :---: |
-| **HU17** | Control de acceso por rol y auditoría de historia clínica (Ley 29733) | Jhostin Leonardo Rodríguez Neyra | 8 | Por hacer |
-| **HU08** | Registrar consulta con diagnóstico CIE-10, indicaciones y receta | Jhostin Leonardo Rodríguez Neyra | 8 | Por hacer |
-| **HU09** | Anular entrada de la historia clínica indicando el motivo | Jhostin Leonardo Rodríguez Neyra | 3 | Por hacer |
-| **HU06** | Registrar datos demográficos y de contacto del paciente | Rafael Olivos Gallardo | 3 | Por hacer |
-| **HU07** | Buscar paciente por DNI exacto y abrir ficha | Rafael Olivos Gallardo | 3 | Por hacer |
-| **HU03** | Ver historia clínica unificada cronológica | Rafael Olivos Gallardo | 8 | Por hacer |
-| **HU04** | Consultar pacientes pendientes de evaluación previa | Rafael Olivos Gallardo | 5 | Por hacer |
-| **HU10** | Registrar signos vitales y observaciones de enfermería | Rafael Olivos Gallardo | 3 | Por hacer |
-| **HU01** | Agendar cita consultando disponibilidad consolidada | Carlos Benjamin Fernandez Iquise | 5 | Por hacer |
-| **HU05** | Reprogramar o cancelar una cita liberando horario | Carlos Benjamin Fernandez Iquise | 3 | Por hacer |
-| **HU02** | Enviar recordatorio automático de cita 24h antes | Carlos Benjamin Fernandez Iquise | 3 | Por hacer |
-| **HU11** | Enviar confirmación al registrar, reprogramar o cancelar | Carlos Benjamin Fernandez Iquise | 3 | Por hacer |
-| **HU18** | Respaldo diario automático con restauración comprobada | Carlos Benjamin Fernandez Iquise | 3 | Por hacer |
+| **HU17** | Control de acceso por rol y auditoría de historia clínica (Ley 29733) | Jhostin Leonardo Rodríguez Neyra | 8 | Implementada; DoD pendiente |
+| **HU08** | Registrar consulta con diagnóstico CIE-10, indicaciones y receta | Jhostin Leonardo Rodríguez Neyra | 8 | Implementada; DoD pendiente |
+| **HU09** | Anular entrada de la historia clínica indicando el motivo | Jhostin Leonardo Rodríguez Neyra | 3 | Implementada; DoD pendiente |
+| **HU06** | Registrar datos demográficos y de contacto del paciente | Rafael Olivos Gallardo | 3 | Implementada; DoD pendiente |
+| **HU07** | Buscar paciente por DNI exacto y abrir ficha | Rafael Olivos Gallardo | 3 | Implementada; DoD pendiente |
+| **HU03** | Ver historia clínica unificada cronológica | Rafael Olivos Gallardo | 8 | Implementada; DoD pendiente |
+| **HU04** | Consultar pacientes pendientes de evaluación previa | Rafael Olivos Gallardo | 5 | Implementada; DoD pendiente |
+| **HU10** | Registrar signos vitales y observaciones de enfermería | Rafael Olivos Gallardo | 3 | Implementada; DoD pendiente |
+| **HU01** | Agendar cita consultando disponibilidad consolidada | Carlos Benjamin Fernandez Iquise | 5 | Implementada; DoD pendiente |
+| **HU05** | Reprogramar o cancelar una cita liberando horario | Carlos Benjamin Fernandez Iquise | 3 | Implementada; DoD pendiente |
+| **HU02** | Enviar recordatorio automático de cita 24h antes | Carlos Benjamin Fernandez Iquise | 3 | Implementada; DoD pendiente |
+| **HU11** | Enviar confirmación al registrar, reprogramar o cancelar | Carlos Benjamin Fernandez Iquise | 3 | Implementada; DoD pendiente |
+| **HU18** | Respaldo diario automático con restauración comprobada | Carlos Benjamin Fernandez Iquise | 3 | Implementada; DoD pendiente |
 | **TOTAL** | **13 historias de usuario priorizadas** | — | **58** | — |
 
 #### 9.1. Definición de Hecho (Definition of Done)
@@ -679,11 +681,13 @@ Este flujo corresponde a HU16. La demostración del Sprint 1 usa admisión, enfe
 3. **Reglas de Base de Datos e Integridad:** Cero borrado físico en HCE (solo anulación vía `ck_consulta_anulacion`), control RBAC activo y auditoría registrada en cada acceso.
 4. **Integración Continua:** Código fusionado en rama principal sin fallas en el pipeline de GitHub Actions.
 5. **Pruebas End-to-End en Contenedores:** Probado en ambiente Docker, verificando casos límite (DNI duplicado, colisión de horarios, anulación con motivo).
-6. **Documentación:** Swagger actualizado y modelo relacional/DBML sincronizado con cualquier cambio de esquema. Swagger sigue pendiente y bloquea declarar historias terminadas.
+6. **Documentación:** Swagger actualizado y modelo relacional/DBML sincronizado con cualquier cambio de esquema. La API publica Swagger; el modelo actual se exportó en [SQL](../../docs/database/schema.sql) y [DBML](../../docs/database/schema.dbml).
 
 ---
 
 ### 9.2. Avance técnico al 27/10/2026
+
+Esta sección conserva el estado histórico de aquella fecha. Para evaluar la versión actual usar la matriz de aceptación del 12/11/2026 enlazada arriba.
 
 El total correcto del Sprint 1 es **58 puntos** (13 historias); la cifra anterior de 49 era un error de suma. El Sprint 2 conserva 25 puntos. Las estimaciones individuales no cambiaron.
 

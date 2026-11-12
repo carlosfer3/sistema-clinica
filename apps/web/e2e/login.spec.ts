@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('signs in with admission, keeps token out of storage and signs out', async ({ page }) => {
+test('restores admission on reload and clears its session on logout', async ({ page }) => {
   await page.route('**/api/auth/login', route => route.fulfill({ json: { accessToken: 'test-token' } }))
   await page.route('**/api/auth/me', route => route.fulfill({ json: { id: 1, rol: 'admision' } }))
   await page.goto('/')
@@ -8,10 +8,13 @@ test('signs in with admission, keeps token out of storage and signs out', async 
   await page.getByLabel('Contraseña', { exact: true }).fill('fictitious-password')
   await page.getByRole('button', { name: 'Iniciar sesión' }).click()
   await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible()
-  expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0])
+  expect(await page.evaluate(() => [localStorage.length, sessionStorage.getItem('siges.staff.token')])).toEqual([0, 'test-token'])
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible()
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
   await expect(page.getByRole('heading', { name: 'Bienvenido de nuevo' })).toBeVisible()
   await expect(page.getByLabel('Contraseña', { exact: true })).toHaveValue('')
+  expect(await page.evaluate(() => sessionStorage.getItem('siges.staff.token'))).toBeNull()
 })
 
 test('rejects invalid credentials and unsupported staff roles', async ({ page }) => {

@@ -29,6 +29,8 @@ export function Nursing({ session, onExpired, onBusyChange }: { session: Session
   const [notice, setNotice] = useState('')
   const [selected, setSelected] = useState<Pending | null>(null)
   const [saving, setSaving] = useState(false)
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(timer) }, [])
   const lock = useRef(false)
   const mounted = useRef(true)
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
@@ -68,26 +70,32 @@ export function Nursing({ session, onExpired, onBusyChange }: { session: Session
   return <section className="nursing" aria-labelledby="nursing-title">
     <div className="page-heading"><p className="eyebrow">Área de enfermería</p><h1 id="nursing-title">Evaluación previa</h1><p>{queue?.fecha ? `${queue.fecha} · ` : ''}Pacientes con llegada registrada y pendientes de preparación. Horario de Lima.</p></div>
     {notice && <p role="status" className="notice">{notice}</p>}
-    {error && <p role="alert" className="notice error">{error}</p>}
-    {selected ? <VitalSignsForm key={selected.citaId} appointment={selected} saving={saving} onSave={save} onCancel={reload} /> : <>
+    {error && !selected && <p role="alert" className="notice error">{error}</p>}
+    {selected && <VitalSignsForm key={selected.citaId} appointment={selected} saving={saving} error={error} onSave={save} onCancel={() => { setSelected(null); setError('') }} />}
+    <>
       <button className="secondary" disabled={saving || loading} onClick={reload}>Actualizar pendientes</button>
       {loading ? <p role="status">Cargando pacientes pendientes…</p> : queue && <>
         {queue.pacientes.length === 0 && <p className="empty">No hay pacientes pendientes de evaluación en esta página.</p>}
-        <div className="daily-list">{queue.pacientes.map(appointment => <article className="card daily-row" key={appointment.citaId} aria-label={`Cita ${appointment.citaId}`}>
-          <div><strong>{time(appointment.inicio)}</strong><p className="small">Llegada: {time(appointment.llegadaEn)}</p><p className="small">Cita #{appointment.citaId}</p></div>
-          <div><strong>{appointment.paciente.nombres} {appointment.paciente.apellidos}</strong><p className="small">{appointment.paciente.tipoDocumento}: {appointment.paciente.numeroDocumento} · {appointment.paciente.edad} años</p><p className="small">{appointment.medico.nombres} {appointment.medico.apellidos} · {appointment.especialidad.nombre}</p></div>
-          <button className="primary" onClick={() => { setSelected(appointment); setError(''); setNotice('') }}>Registrar signos vitales</button>
-        </article>)}</div>
+        <div className="daily-table-wrap"><table className="daily-table"><thead><tr><th>Llegada</th><th>Espera</th><th>Paciente</th><th>DNI</th><th>Especialidad</th><th>Médico</th><th><span className="sr-only">Acciones</span></th></tr></thead><tbody>{queue.pacientes.map(appointment => <tr key={appointment.citaId}>
+          <td data-label="Llegada">{time(appointment.llegadaEn)}</td>
+          <td data-label="Espera">{Math.max(0, Math.floor((now - new Date(appointment.llegadaEn).getTime()) / 60000))} min</td>
+          <td data-label="Paciente"><strong>{appointment.paciente.nombres} {appointment.paciente.apellidos}</strong></td>
+          <td data-label="DNI">{appointment.paciente.numeroDocumento}</td>
+          <td data-label="Especialidad">{appointment.especialidad.nombre}</td>
+          <td data-label="Médico">{appointment.medico.nombres} {appointment.medico.apellidos}</td>
+          <td data-label="Acciones"><button className="primary" onClick={() => { setSelected(appointment); setError(''); setNotice('') }}>Evaluar</button></td>
+        </tr>)}</tbody></table></div>
         <nav className="daily-pagination" aria-label="Páginas de pacientes pendientes"><button className="secondary" disabled={page === 1} onClick={() => { setLoading(true); setPage(page - 1) }}>Anterior</button><span>Página {page}</span><button className="secondary" disabled={!queue.hayMas} onClick={() => { setLoading(true); setPage(page + 1) }}>Siguiente</button></nav>
       </>}
-    </>}
+    </>
   </section>
 }
 
-function VitalSignsForm({ appointment, saving, onSave, onCancel }: { appointment: Pending; saving: boolean; onSave: (values: Record<string, number | string>) => Promise<void>; onCancel: () => void }) {
+function VitalSignsForm({ appointment, saving, error, onSave, onCancel }: { appointment: Pending; saving: boolean; error: string; onSave: (values: Record<string, number | string>) => Promise<void>; onCancel: () => void }) {
   const [values, setValues] = useState<Record<string, string>>({})
   const title = useRef<HTMLHeadingElement>(null)
-  useEffect(() => { title.current?.focus() }, [])
+  const dialog = useRef<HTMLDialogElement>(null)
+  useEffect(() => { dialog.current?.showModal(); title.current?.focus() }, [])
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     if (saving) return
@@ -96,14 +104,20 @@ function VitalSignsForm({ appointment, saving, onSave, onCancel }: { appointment
     if (values.observaciones?.trim()) data.observaciones = values.observaciones.trim()
     void onSave(data)
   }
-  return <section className="card" aria-labelledby="vital-title">
-    <h2 id="vital-title" tabIndex={-1} ref={title}>Registrar signos vitales</h2>
-    <div className="patient-selected"><strong>{appointment.paciente.nombres} {appointment.paciente.apellidos}</strong><p>{appointment.paciente.tipoDocumento}: {appointment.paciente.numeroDocumento} · {appointment.paciente.edad} años</p><p>Cita #{appointment.citaId} · {time(appointment.inicio)} · {appointment.medico.nombres} {appointment.medico.apellidos}</p></div>
+  return <dialog ref={dialog} className="card modal nursing-modal" aria-labelledby="vital-title" onCancel={event => { event.preventDefault(); if (!saving) onCancel() }}>
+    <div className="nursing-modal-header">
+      <h2 id="vital-title" tabIndex={-1} ref={title}>Registrar signos vitales</h2>
+      <button type="button" className="nursing-modal-close" aria-label="Cerrar evaluación" disabled={saving} onClick={onCancel}>×</button>
+    </div>
+    <div className="nursing-modal-body">
+    <div className="reschedule-details"><div><p className="eyebrow">Paciente</p><strong>{appointment.paciente.nombres} {appointment.paciente.apellidos}</strong><p>{appointment.paciente.tipoDocumento}: {appointment.paciente.numeroDocumento} · {appointment.paciente.edad} años</p></div><div><p className="eyebrow">Consulta</p><strong>Cita #{appointment.citaId} · {time(appointment.inicio)}</strong><p>{appointment.especialidad.nombre}</p><p>{appointment.medico.nombres} {appointment.medico.apellidos}</p></div></div>
     <p className="small muted">Confirma la identidad del paciente e ingresa las mediciones tomadas antes de la consulta.</p>
     <form onSubmit={submit} aria-busy={saving}>
+      {error && <p role="alert" className="notice error">{error}</p>}
       <fieldset disabled={saving}><div className="vital-grid">{fields.map(field => <div key={field.name}><label htmlFor={`vital-${field.name}`}>{field.label}</label><input id={`vital-${field.name}`} type="number" min={field.min} max={field.max} step={field.step} required={field.required} value={values[field.name] ?? ''} onChange={event => setValues(current => ({ ...current, [field.name]: event.target.value }))} /></div>)}</div>
       <label htmlFor="vital-observations">Observaciones de enfermería (opcional)</label><textarea id="vital-observations" maxLength={1000} rows={3} value={values.observaciones ?? ''} onChange={event => setValues(current => ({ ...current, observaciones: event.target.value }))} />
       <div className="daily-pagination"><button type="button" className="secondary" onClick={onCancel}>Volver a pendientes</button><button type="submit" className="primary">{saving ? 'Guardando evaluación…' : 'Guardar evaluación'}</button></div></fieldset>
     </form>
-  </section>
+    </div>
+  </dialog>
 }
