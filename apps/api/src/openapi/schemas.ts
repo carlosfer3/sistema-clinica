@@ -137,6 +137,22 @@ export const responseSchemas: Record<string, SchemaObject> = {
     alergias: array(object({ id: integer, sustancia: text, reaccion: nullable(text) })),
     especialidades: array(object({ id: integer, nombre: text })),
   }),
+  PortalBiometrics: object({
+    registros: array(object({
+      id: integer,
+      registradoEn: instant,
+      temperaturaC: { type: 'number' },
+      presionSistolica: integer,
+      presionDiastolica: integer,
+      frecuenciaCardiaca: integer,
+      frecuenciaRespiratoria: integer,
+      saturacionOxigeno: { type: 'number' },
+      pesoKg: nullable({ type: 'number' }),
+      tallaCm: nullable({ type: 'number' }),
+      observaciones: nullable(text),
+      autor: object(names),
+    })),
+  }),
   PortalNotifications: object({
     notificaciones: array(object({ id: text, tipo: text, citaId: integer, inicio: nullable(instant), inicioAnterior: nullable(instant), especialidad: text, pendienteConfirmacion: { type: 'boolean' }, creadoEn: instant })),
     pagina: integer, hayMas: { type: 'boolean' },

@@ -24,10 +24,14 @@ export function PatientNotifications({
   session,
   onExpired,
   onAppointments,
+  limit = 6,
+  compact = false,
 }: {
   session: Session
   onExpired: () => void
   onAppointments: () => void
+  limit?: number
+  compact?: boolean
 }) {
   const [listing, setListing] = useState<Listing | null>(null)
   const [error, setError] = useState('')
@@ -46,7 +50,7 @@ export function PatientNotifications({
   }, [])
   useEffect(() => {
     const controller = new AbortController()
-    api<Listing>(`/portal/notifications?pagina=${page}&limite=6`, {
+    api<Listing>(`/portal/notifications?pagina=${page}&limite=${limit}`, {
       token: session.token,
       signal: controller.signal,
     })
@@ -63,10 +67,10 @@ export function PatientNotifications({
         }
       })
     return () => controller.abort()
-  }, [session.token, onExpired, page, revision])
+  }, [session.token, onExpired, page, revision, limit])
   return (
     <section
-      className="pp-notice-feed"
+      className={`pp-notice-feed${compact ? ' pp-notice-feed-compact' : ''}`}
       aria-label="Notificaciones de tus citas"
     >
       <div className="pp-section-heading">
@@ -153,7 +157,7 @@ export function PatientNotifications({
               ))}
             </ul>
           )}
-          <nav
+          {!compact && <nav
             className="pp-notice-pagination"
             aria-label="Páginas de notificaciones"
           >
@@ -178,12 +182,12 @@ export function PatientNotifications({
             >
               Avisos anteriores
             </button>
-          </nav>
+          </nav>}
         </>
       )}
-      <button className="pp-text-button" onClick={onAppointments}>
+      {!compact && <button className="pp-text-button" onClick={onAppointments}>
         Revisar el estado actual de mis citas →
-      </button>
+      </button>}
     </section>
   )
 }

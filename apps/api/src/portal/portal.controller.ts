@@ -80,6 +80,15 @@ export class PortalController {
     return this.portal.historyContext(req.user!.id, ip);
   }
 
+  @Get('biometrics')
+  @ApiContract('Consultar mis diez evaluaciones biométricas más recientes', 'PortalBiometrics', {
+    description: 'Hasta diez registros de triaje propios, ordenados del más reciente al más antiguo; incluye al personal de enfermería que registró cada evaluación.',
+    errors: { 404: 'Cuenta sin paciente vinculado.' },
+  })
+  biometrics(@Req() req: AuthRequest, @Ip() ip: string) {
+    return this.portal.biometrics(req.user!.id, ip);
+  }
+
   @Get('notifications')
   @ApiContract('Consultar mis notificaciones de citas', 'PortalNotifications', {
     description: 'Avisos propios de registro, confirmación, reprogramación y cancelación, independientemente del envío de correo. Recupera confirmaciones auditadas anteriores sin aviso duplicado.',

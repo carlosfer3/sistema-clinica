@@ -36,7 +36,8 @@ type Profile = {
   correo: string
   direccion: string | null
 }
-type Biometrics = { registradoEn: string; presionSistolica: number; presionDiastolica: number; frecuenciaCardiaca: number; saturacionOxigeno: number; pesoKg: number | null; tallaCm: number | null; temperaturaC: number; observaciones: string | null }
+type Biometrics = { id: number; registradoEn: string; presionSistolica: number; presionDiastolica: number; frecuenciaCardiaca: number; saturacionOxigeno: number; pesoKg: number | null; tallaCm: number | null; temperaturaC: number; observaciones: string | null; autor: { nombres: string; apellidos: string } }
+type BiometricsResponse = { registros: Biometrics[] }
 type Appointment = {
   id: number
   inicio: string
@@ -44,7 +45,7 @@ type Appointment = {
   estado: string
   modalidad: string
   llegadaEn: string | null
-  evaluacionPrevia?: Biometrics | null
+  evaluacionPrevia?: { registradoEn: string; presionSistolica: number; presionDiastolica: number; frecuenciaCardiaca: number; saturacionOxigeno: number; pesoKg: number | null; tallaCm: number | null; temperaturaC: number; observaciones: string | null } | null
   preparacionCompletadaEn?: string | null
   medico: { id: number; nombres: string; apellidos: string }
   especialidad: { id: number; nombre: string }
@@ -477,6 +478,7 @@ export function PatientPortal({
   const [appointments, setAppointments] = useState<Appointments | null>(null)
   const [homeHistory, setHomeHistory] = useState<History | null>(null)
   const [homeHistoryError, setHomeHistoryError] = useState(false)
+  const [biometrics, setBiometrics] = useState<BiometricsResponse | null>(null)
   const [history, setHistory] = useState<History | null>(null)
   const [page, setPage] = useState(1)
   const [scope, setScope] = useState('upcoming')
@@ -563,6 +565,14 @@ export function PatientPortal({
       .catch(cause => { if (!controller.signal.aborted) { if (cause instanceof ApiError && cause.status === 401) onExpired(); else setHomeHistoryError(true) } })
     return () => controller.abort()
   }, [view, revision, session.token, onExpired])
+  useEffect(() => {
+    if (view !== 'home') return
+    const controller = new AbortController()
+    api<BiometricsResponse>('/portal/biometrics', { token: session.token, signal: controller.signal })
+      .then(data => { if (!controller.signal.aborted) setBiometrics(data) })
+      .catch(cause => { if (!controller.signal.aborted && cause instanceof ApiError && cause.status === 401) onExpired() })
+    return () => controller.abort()
+  }, [view, revision, liveRevision, session.token, onExpired])
   function navigate(next: View) {
     if (busy) return
     setView(next)
@@ -767,8 +777,25 @@ export function PatientPortal({
     )
   }
   const next = appointments?.citas[0]
-  const biometrics = next?.evaluacionPrevia
-  const bmi = biometrics?.pesoKg && biometrics.tallaCm ? (biometrics.pesoKg / ((biometrics.tallaCm / 100) ** 2)).toFixed(1) : null
+  const biometricRecords = biometrics?.registros ?? []
+  const latestBiometrics = biometricRecords[0] ?? null
+  const bmi = latestBiometrics?.pesoKg && latestBiometrics.tallaCm ? (latestBiometrics.pesoKg / ((latestBiometrics.tallaCm / 100) ** 2)).toFixed(1) : null
+  const pulseValues = biometricRecords.map(record => record.frecuenciaCardiaca)
+  const pulseAverage = pulseValues.length ? Math.round(pulseValues.reduce((sum, value) => sum + value, 0) / pulseValues.length) : null
+  const pulseDelta = pulseValues.length > 1 ? pulseValues[0] - pulseValues[pulseValues.length - 1] : null
+  const pulseChronological = [...biometricRecords].reverse()
+  const pulseMin = Math.min(...pulseChronological.map(record => record.frecuenciaCardiaca), pulseAverage ?? 0)
+  const pulseMax = Math.max(...pulseChronological.map(record => record.frecuenciaCardiaca), pulseAverage ?? 0)
+  const pulseRange = Math.max(pulseMax - pulseMin, 1)
+  const pulsePoints = pulseChronological.map((record, index) => ({
+    x: pulseChronological.length === 1 ? 100 : 18 + index * (164 / (pulseChronological.length - 1)),
+    y: 38 - ((record.frecuenciaCardiaca - pulseMin) / pulseRange) * 26,
+    value: record.frecuenciaCardiaca,
+    date: date(record.registradoEn, { day: '2-digit', month: 'short' }),
+  }))
+  const pulseDateLabels = pulsePoints.length > 2
+    ? [pulsePoints[0], pulsePoints[Math.floor((pulsePoints.length - 1) / 2)], pulsePoints[pulsePoints.length - 1]]
+    : pulsePoints
   return (
     <div className={`pp-shell ${view === 'home' ? 'pp-reference-home' : ''}`}>
       <aside className="pp-sidebar">
@@ -910,19 +937,33 @@ export function PatientPortal({
                     <p className="pp-home-caption">Consulta tus diagnósticos e indicaciones registrados.</p>
                     {homeHistoryError ? <p>No pudimos cargar tus atenciones.</p> : !homeHistory ? <p role="status">Cargando tus atenciones…</p> : homeHistory.consultas.length ? <div className="pp-home-records">{homeHistory.consultas.map(c => <article key={c.id} className="pp-home-record"><div className="pp-home-record-heading"><span className="pp-count">{c.estado === 'anulado' ? 'Anulada' : 'Consulta'}</span><span>{date(c.fechaHora, { dateStyle: 'medium' })}</span></div><h3>{c.medico.especialidad.nombre}</h3><p>{c.medico.usuario.nombres} {c.medico.usuario.apellidos}</p>{c.estado === 'anulado' ? <p>{c.motivoAnulacion}</p> : <><strong>{c.motivo}</strong>{c.diagnosticos.map(d => <p key={d.codigo}>{d.codigo} · {d.descripcion}</p>)}</>}<button className="pp-text-button" onClick={() => navigate('history')}>Consultar historial <Icon name="arrow" /></button></article>)}</div> : <div className="pp-home-empty">Todavía no tienes consultas registradas.</div>}
                   </section>
+                  <div className="pp-home-notifications-alerts">
+                    <PatientNotifications session={session} onExpired={onExpired} onAppointments={() => navigate('appointments')} limit={3} compact />
+                    <PatientAlerts session={session} appointments={appointments?.citas ?? null} onExpired={onExpired} onAppointments={() => navigate('appointments')} onPayments={() => navigate('payments')} onPrescriptions={() => navigate('prescriptions')} />
+                  </div>
                 </div>
                 <aside className="pp-home-secondary">
-                  <section className="pp-home-panel pp-biometrics"><div className="pp-section-heading"><h2><Icon name="check" />Constantes biométricas</h2></div><p className="pp-home-caption">{biometrics ? `Triaje registrado · ${date(biometrics.registradoEn, { dateStyle: 'short', timeStyle: 'short' })}` : 'Sin triaje registrado para tu próxima cita'}</p>
+                  <section className="pp-home-panel pp-biometrics"><div className="pp-section-heading"><h2><Icon name="check" />Constantes biométricas</h2></div><p className="pp-home-caption">{latestBiometrics ? `Último triaje · ${date(latestBiometrics.registradoEn, { dateStyle: 'short', timeStyle: 'short' })}` : 'Aún no hay registros de triaje'}</p>
                     <div className="pp-biometrics-grid">
-                      <div><small>P. arterial</small><strong>{biometrics ? `${biometrics.presionSistolica}/${biometrics.presionDiastolica}` : '—'}</strong><span>mmHg</span></div>
-                      <div><small>Frecuencia</small><strong>{biometrics?.frecuenciaCardiaca ?? '—'}</strong><span>lpm</span></div>
-                      <div><small>SpO₂</small><strong>{biometrics ? `${biometrics.saturacionOxigeno}%` : '—'}</strong><span>Saturación de oxígeno</span></div>
-                      <div><small>IMC / Peso</small><strong>{bmi ?? '—'}</strong><span>{biometrics?.pesoKg ? `${biometrics.pesoKg} kg` : 'Sin peso registrado'}</span></div>
+                      <div><small>P. arterial</small><strong>{latestBiometrics ? `${latestBiometrics.presionSistolica}/${latestBiometrics.presionDiastolica}` : '—'}</strong><span>mmHg</span></div>
+                      <div><small>Frecuencia</small><strong>{latestBiometrics?.frecuenciaCardiaca ?? '—'}</strong><span>lpm</span></div>
+                      <div><small>SpO₂</small><strong>{latestBiometrics ? `${latestBiometrics.saturacionOxigeno}%` : '—'}</strong><span>Saturación de oxígeno</span></div>
+                      <div><small>IMC / Peso</small><strong>{bmi ?? '—'}</strong><span>{latestBiometrics?.pesoKg != null ? `${latestBiometrics.pesoKg} kg` : 'Sin peso registrado'}</span></div>
                     </div>
-                    {biometrics && <p className="pp-biometric-note">Temperatura: {biometrics.temperaturaC} °C{biometrics.observaciones && <><br />{biometrics.observaciones}</>}</p>}
+                    <div className="pp-biometric-trend">
+                      <div className="pp-biometric-trend-heading"><span>Tendencia del pulso · últimos {biometricRecords.length} registros (máx. 10)</span>{pulseAverage != null && <strong>Prom: {pulseAverage} lpm</strong>}</div>
+                      {pulsePoints.length ? <>
+                        <svg className="pp-biometric-chart" viewBox="0 0 200 50" role="img" aria-label={`Frecuencia cardíaca en ${pulsePoints.length} registros; promedio ${pulseAverage} latidos por minuto`}>
+                          {pulsePoints.length > 1 && <polyline points={pulsePoints.map(point => `${point.x},${point.y}`).join(' ')} />}
+                          {pulsePoints.map((point, index) => <circle key={biometricRecords[index]?.id} cx={point.x} cy={point.y} r="3.5"><title>{point.value} lpm · {point.date}</title></circle>)}
+                        </svg>
+                        <div className="pp-biometric-dates">{pulseDateLabels.map((point, index) => <span key={`${point.date}-${index}`}>{point.date}</span>)}</div>
+                        {pulseDelta !== null && <span className="pp-biometric-delta">Cambio entre el registro más reciente y el más antiguo: {pulseDelta > 0 ? '+' : ''}{pulseDelta} lpm</span>}
+                      </> : <p className="pp-biometric-empty">El gráfico aparecerá cuando se registre tu primer control.</p>}
+                    </div>
+                    {latestBiometrics && <div className="pp-biometric-note"><strong>{latestBiometrics.autor.nombres} {latestBiometrics.autor.apellidos} · Enfermería</strong>{latestBiometrics.observaciones ? <p>“{latestBiometrics.observaciones}”</p> : <p>Sin observación registrada.</p>}</div>}
                   </section>
                   {appointments && appointments.citas.slice(1).map(a => <section className="pp-home-panel" key={a.id}><h2>Próxima en agenda</h2>{appointmentCard(a)}</section>)}
-                  <PatientAlerts session={session} appointments={appointments?.citas ?? null} onExpired={onExpired} onAppointments={() => navigate('appointments')} onPayments={() => navigate('payments')} onPrescriptions={() => navigate('prescriptions')} />
                   <section className="pp-home-support"><span className="pp-quick-icon"><Icon name="help" /></span><h2>¿Necesitas ayuda?</h2><p>Consulta cómo gestionar tus citas, recetas y datos del paciente.</p><button className="pp-primary" onClick={() => setModal({ kind: 'help' })}>Centro de ayuda <Icon name="arrow" /></button><button className="pp-text-button" onClick={() => navigate('payments')}>Consultar mis pagos <Icon name="arrow" /></button></section>
                 </aside>
               </div>

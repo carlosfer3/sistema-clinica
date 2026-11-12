@@ -201,6 +201,31 @@ export class PortalService {
     return { ...paciente, especialidades };
   }
 
+  async biometrics(actorId: number, ip?: string) {
+    await this.audit.record(actorId, 'READ_OWN_BIOMETRICS', 'portal/biometrics', ip);
+    const pacienteId = await this.patientId(actorId);
+    const registros = await this.prisma.evaluacionPrevia.findMany({
+      where: { cita: { pacienteId } },
+      select: {
+        id: true,
+        registradoEn: true,
+        temperaturaC: true,
+        presionSistolica: true,
+        presionDiastolica: true,
+        frecuenciaCardiaca: true,
+        frecuenciaRespiratoria: true,
+        saturacionOxigeno: true,
+        pesoKg: true,
+        tallaCm: true,
+        observaciones: true,
+        autor: { select: { nombres: true, apellidos: true } },
+      },
+      orderBy: [{ registradoEn: 'desc' }, { id: 'desc' }],
+      take: 10,
+    });
+    return { registros };
+  }
+
   async history(query: PortalHistoryDto, actorId: number, ip?: string) {
     if (query.desde && query.hasta && query.desde > query.hasta) throw new BadRequestException('Invalid date range');
     await this.audit.record(actorId, 'READ_OWN_HISTORY', 'portal/history', ip);

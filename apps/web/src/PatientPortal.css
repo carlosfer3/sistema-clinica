@@ -1115,6 +1115,9 @@
 .pp-care-flow small { display: block; color: #ced5f5; font-size: 11px; margin-top: 4px; line-height: 1.6; }
 .pp-home-columns { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1fr); gap: 24px; align-items: start; }
 .pp-home-primary, .pp-home-secondary { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.pp-home-notifications-alerts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 20px; }
+.pp-home-notifications-alerts .pp-notice-feed { min-width: 0; margin: 0; padding: 20px; border: 1px solid #e0e4f2; border-radius: 12px; background: #fff; }
+.pp-home-notifications-alerts .pp-alerts { min-width: 0; margin: 0; }
 .pp-home-panel { background: white; border: 1px solid #e0e4f2; border-radius: 16px; padding: 24px; box-shadow: 0 2px 8px #10207a04; }
 .pp-home-panel .pp-section-heading { align-items: flex-start; flex-wrap: wrap; margin-bottom: 8px; }
 .pp-home-panel h2 { font-size: 18px; }
@@ -1177,8 +1180,10 @@
 .pp-care-flow .pp-flow-current > span { outline: 2px solid #4957ae; outline-offset: 3px; }
 .pp-progress-stopped { padding: 12px; border-radius: 10px; background: #fff0ed; color: #9c302d; font-size: .8rem; }
 .pp-notice-feed { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #dce5f5; }
+.pp-notice-feed-compact { height: 100%; margin: 0; padding-bottom: 20px; border-bottom: 0; }
 .pp-notice-feed h2 { font-size: 1.05rem; }
 .pp-notice-feed > ul { list-style: none; display: grid; gap: 12px; padding: 0; margin: 18px 0; }
+.pp-notice-feed-compact > ul { gap: 8px; margin-bottom: 0; }
 .pp-notice-feed li { display: flex; align-items: start; gap: 12px; padding: 14px; border: 1px solid #dce5f5; border-radius: 12px; background: #f5f8ff; }
 .pp-notice-feed li > div { min-width: 0; overflow-wrap: anywhere; }
 .pp-notice-feed h3 { font-size: .9rem; font-weight: 650; margin: 0 0 6px; color: #10207a; }
@@ -1220,13 +1225,25 @@
 .pp-reference-home .pp-home-panel h2 { font-size: 19px; }
 .pp-reference-home .pp-home-caption { margin-bottom: 16px; }
 .pp-reference-home .pp-home-medicine, .pp-reference-home .pp-home-record { border-radius: 12px; background: #eff4ff; }
-.pp-biometrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.pp-biometrics-grid > div { display: flex; flex-direction: column; gap: 5px; background: #eff4ff; padding: 14px; border-radius: 12px; }
+.pp-biometrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 2px; }
+.pp-biometrics-grid > div { display: flex; flex-direction: column; gap: 5px; background: #f8f9ff; border: 1px solid #dce5f5; box-shadow: 0 2px 6px #10207a0b; padding: 14px; border-radius: 12px; }
 .pp-biometrics-grid small { font-size: 10px; color: #63708e; text-transform: uppercase; letter-spacing: .04em; }
-.pp-biometrics-grid strong { font-size: 24px; color: #0b1c30; line-height: 1.3; }
+.pp-biometrics-grid strong { font-size: 22px; color: #0b1c30; line-height: 1.3; }
 .pp-biometrics-grid span { font-size: 11px; color: #63708e; }
-.pp-biometric-note { border-radius: 8px; padding: 12px; font-size: 12px; line-height: 1.6; background: #e5eeff; color: #454652; }
+.pp-biometric-note { margin-top: 10px; border: 1px solid #dce5f5; border-radius: 12px; padding: 14px; font-size: 12px; line-height: 1.6; background: #f8f9ff; color: #454652; }
+.pp-biometric-trend { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; border: 1px solid #dce5f5; border-radius: 12px; padding: 14px; background: #eff4ff; }
+.pp-biometric-trend-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; color: #63708e; font-size: 10px; line-height: 1.35; }
+.pp-biometric-trend-heading strong { color: #10207a; font-size: 10px; white-space: nowrap; }
+.pp-biometric-chart { width: 100%; height: 42px; overflow: visible; }
+.pp-biometric-chart polyline { fill: none; stroke: #4957ae; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pp-biometric-chart circle { fill: #4957ae; stroke: #fff; stroke-width: 1.5; }
+.pp-biometric-dates { display: flex; justify-content: space-between; gap: 8px; color: #63708e; font-size: 9px; }
+.pp-biometric-delta { color: #63708e; font-size: 10px; }
+.pp-biometric-empty { margin: 0; color: #63708e; font-size: 11px; }
+.pp-biometric-note strong { display: block; color: #10207a; font-size: 11px; }
+.pp-biometric-note p { margin: 4px 0 0; }
 .pp-reference-home .pp-home-support { border-radius: 12px; }
 @media(max-width: 1200px) { .pp-live-doctor { flex-wrap: wrap; } .pp-live-actions { margin-left: 72px; } .pp-reference-home .pp-home-columns { grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); } }
 @media(max-width: 1000px) { .pp-reference-home .pp-sidebar { width: 200px; } .pp-reference-home .pp-workspace { margin-left: 200px; } .pp-reference-home .pp-home-columns { grid-template-columns: 1fr; } }
 @media(max-width: 700px) { .pp-reference-home .pp-sidebar { width: 100%; } .pp-reference-home .pp-workspace { margin-left: 0; } .pp-reference-home .pp-main { padding: 24px 16px; } .pp-reference-home .pp-topbar { padding: 0 16px; } .pp-reference-home .pp-greeting { align-items: flex-start; } .pp-reference-home .pp-home-live { padding: 20px; } .pp-home-live .pp-care-flow ol { grid-template-columns: 1fr; } .pp-home-live .pp-care-flow li { flex-direction: row; } .pp-live-avatar { display: none; } .pp-live-actions { margin-left: 0; } .pp-home-live .pp-live-doctor-info h2 { font-size: 20px; } }
+@media(max-width: 700px) { .pp-home-notifications-alerts { grid-template-columns: 1fr; } }
