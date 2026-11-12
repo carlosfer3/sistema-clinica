@@ -1,7 +1,11 @@
 .app:has(.medical-station) { background: #f2f8fc; padding-left: 250px; }
-.app:has(.medical-station) .topbar { min-height: 88px; padding: 16px 28px; }
+.app:has(.medical-station) .topbar { min-height: 88px; padding: 16px 28px; justify-content: space-between; }
+.medical-topbar-title h1 { margin: 0 0 5px; font-family: 'Source Serif 4', Georgia, serif; font-size: 1.3rem; font-weight: 600; line-height: 1.2; letter-spacing: normal; color: #12456b; }
+.medical-topbar-title p { margin: 0; font-size: .8rem; color: #5a778b; }
+.medical-page-context { margin-bottom: 22px; }
+.medical-page-context p { margin: 0; font-size: .83rem; }
 .app:has(.medical-station) .topbar .brand { font-size: 1rem; }
-.app:has(.medical-station) .topbar .brand-logo { width: 42px; height: 40px; }
+.app:has(.medical-station) .topbar .brand-logo { display: none; }
 main:has(.medical-station) { width: 100%; max-width: 1720px; min-width: 0; padding: 28px; }
 .medical-sidebar { position: fixed; inset: 0 auto 0 0; width: 250px; display: flex; flex-direction: column; background: #fff; border-right: 1px solid #dcecf5; z-index: 10; }
 .medical-sidebar-brand { display: flex; align-items: center; gap: 12px; min-height: 88px; padding: 20px; background: #edf7fc; color: #12456b; font-size: 1.1rem; font-weight: 750; }
@@ -18,6 +22,7 @@ main:has(.medical-station) { width: 100%; max-width: 1720px; min-width: 0; paddi
 .medical-sidebar-note small { font-size: .65rem; }
 .medical-station > .page-heading { margin-bottom: 24px; }
 .medical-station > .page-heading h1 { font-size: 1.9rem; }
+.medical-station .medical-page-subtitle { margin: 12px 0 8px; font-size: 1.1rem; color: #245773; letter-spacing: normal; font-weight: 600; }
 .medical-station > .page-heading p { font-size: .85rem; }
 .medical-panel { min-width: 0; padding: 24px; background: #fff; border: 1px solid #e1edf4; border-radius: 16px; box-shadow: 0 3px 12px #12456b04; }
 .medical-panel h2 { font-size: 1.15rem; }
@@ -91,11 +96,12 @@ main:has(.medical-station) { width: 100%; max-width: 1720px; min-width: 0; paddi
   .app:has(.medical-station) .topbar { padding: 12px 16px; min-height: auto; }
   .app:has(.medical-station) .topbar .brand { font-size: .85rem; }
   .app:has(.medical-station) .topbar .brand small { font-size: .6rem; }
-  .app:has(.medical-station) .topbar .brand-logo { width: 34px; height: 34px; }
+  .app:has(.medical-station) .topbar .brand-logo { display: block; width: 34px; height: 34px; }
   .app:has(.medical-station) .session-actions button { font-size: .75rem; padding: 9px; }
   main:has(.medical-station) { padding: 0 16px 24px; }
   .medical-sidebar { position: static; width: auto; margin: 0 -16px 24px; border-right: 0; border-bottom: 1px solid #dcecf5; }
   .medical-sidebar-brand, .medical-sidebar-note { display: none; }
+  .medical-sidebar-brand { display: flex; }
   .medical-sidebar nav { display: flex; gap: 8px; overflow-x: auto; padding: 12px; }
   .medical-sidebar nav button { flex: none; min-height: 42px; font-size: .73rem; gap: 7px; padding: 10px; }
   .medical-sidebar nav button > span { font-size: 1rem; }

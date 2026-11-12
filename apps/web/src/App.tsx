@@ -43,6 +43,7 @@ function App() {
   }, [patientAccess, setSession, storedToken])
   const [booking, setBooking] = useState(false)
   const [expired, setExpired] = useState(false)
+  const [medicalSection, setMedicalSection] = useState('Pacientes preparados')
   const onExpired = useCallback(() => { setSession(null); setBooking(false); setExpired(true) }, [setSession])
   useEffect(() => { document.title = patientAccess ? 'Acceso Pacientes | Clínica San Rafael S.A.C.' : 'Personal | Clínica San Rafael' }, [patientAccess])
   if (restoring) return <main><p role="status">Restaurando sesión…</p></main>
@@ -52,17 +53,18 @@ function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="Clínica San Rafael, inicio">
+        {session?.user.rol === 'medico' && <div className="medical-topbar-title"><h1 id="medical-title">Portal del médico</h1><p>{medicalSection}</p></div>}
+        {session?.user.rol !== 'medico' && <a className="brand" href="/" aria-label="Clínica San Rafael S.A.C., inicio">
           <img className="brand-logo" src="/clinic-logo.png" alt="Clínica San Rafael S.A.C." width="64" height="58" />
-          <span>San Rafael<small>Sistema de gestión clínica</small></span>
-        </a>
+          <span>San Rafael S.A.C.<small>Sistema de gestión clínica</small></span>
+        </a>}
         <div className="session-actions">
           <span className="badge">{session ? session.user.rol === 'cajero' ? 'Caja' : session.user.rol === 'medico' ? 'Médico' : session.user.rol === 'enfermeria' ? 'Enfermería' : 'Admisión' : 'Personal'}</span>
           {session && <button className="secondary" disabled={booking} onClick={() => { setSession(null); setExpired(false) }}>Cerrar sesión</button>}
         </div>
       </header>
       <main>
-        {!session ? <>{expired && <p role="alert" className="notice error">Tu sesión venció o perdió acceso. Inicia sesión nuevamente.</p>}<Login onLogin={value => { setExpired(false); setSession(value) }} /></> : session.user.rol === 'cajero' ? <Cashier session={session} onExpired={onExpired} onBusyChange={setBooking} /> : session.user.rol === 'medico' ? <Medical session={session} onExpired={onExpired} onBusyChange={setBooking} /> : session.user.rol === 'enfermeria' ? <Nursing session={session} onExpired={onExpired} onBusyChange={setBooking} /> : <p>Tu cuenta no tiene un m?dulo habilitado.</p>}
+        {!session ? <>{expired && <p role="alert" className="notice error">Tu sesión venció o perdió acceso. Inicia sesión nuevamente.</p>}<Login onLogin={value => { setExpired(false); setSession(value) }} /></> : session.user.rol === 'cajero' ? <Cashier session={session} onExpired={onExpired} onBusyChange={setBooking} /> : session.user.rol === 'medico' ? <Medical session={session} onExpired={onExpired} onBusyChange={setBooking} onSectionChange={setMedicalSection} /> : session.user.rol === 'enfermeria' ? <Nursing session={session} onExpired={onExpired} onBusyChange={setBooking} /> : <p>Tu cuenta no tiene un m?dulo habilitado.</p>}
       </main>
       <footer>SIGES SR · Clínica San Rafael<span>Uso exclusivo del personal autorizado</span></footer>
     </div>

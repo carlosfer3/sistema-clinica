@@ -59,10 +59,12 @@ export function Medical({
   session,
   onExpired,
   onBusyChange,
+  onSectionChange,
 }: {
   session: Session
   onExpired: () => void
   onBusyChange: (busy: boolean) => void
+  onSectionChange: (section: string) => void
 }) {
   const [queue, setQueue] = useState<Queue | null>(null)
   const [page, setPage] = useState(1)
@@ -74,6 +76,9 @@ export function Medical({
   const [saving, setSaving] = useState(false)
   const [otherBusy, setOtherBusy] = useState(false)
   const [view, setView] = useState<'patients' | 'consultations'>('patients')
+  useEffect(() => {
+    onSectionChange(selected ? 'Atención en curso' : view === 'consultations' ? 'Consultas registradas' : 'Pacientes preparados')
+  }, [selected, view, onSectionChange])
   const lock = useRef(false)
   function reload() {
     setSelected(null)
@@ -148,7 +153,7 @@ export function Medical({
         <div className="medical-sidebar-brand">
           <img src="/clinic-logo.png" alt="" />
           <div>
-            San Rafael<small>ESTACIÓN MÉDICA</small>
+            San Rafael S.A.C.<small>ESTACIÓN MÉDICA</small>
           </div>
         </div>
         <nav aria-label="Opciones del médico">
@@ -187,12 +192,9 @@ export function Medical({
           <small>SIGES SR · Portal médico</small>
         </div>
       </aside>
-      <div className="page-heading">
-        <p className="eyebrow">Área médica</p>
-        <h1 id="medical-title">Atención médica</h1>
+      <div className="medical-page-context">
         <p>
-          {queue?.fecha} · Pacientes preparados para tu consulta. Horario de
-          Lima.
+          {queue?.fecha ? `${queue.fecha} · ` : ''}{selected ? 'Revisa la evaluación y registra la consulta del paciente.' : view === 'consultations' ? 'Consulta tus atenciones registradas y gestiona sus anulaciones.' : 'Selecciona un paciente preparado para iniciar su atención.'} Horario de Lima.
         </p>
       </div>
       {error && (
@@ -230,7 +232,6 @@ export function Medical({
             </div>
           ) : (
             <div className="medical-panel">
-              <h2>Pacientes preparados</h2>
               <button className="secondary" disabled={loading} onClick={reload}>
                 Actualizar pacientes
               </button>

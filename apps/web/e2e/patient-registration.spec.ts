@@ -152,7 +152,7 @@ test('does not retry a failed connection and preserves the draft', async ({ page
 
 for (const role of ['medico', 'enfermeria']) test(`does not expose registration to ${role}`, async ({ page }) => {
   await setup(page, role)
-  await expect(page.getByRole('heading', { name: role === 'medico' ? 'Atención médica' : 'Evaluación previa', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: role === 'medico' ? 'Portal del médico' : 'Evaluación previa', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Registrar nuevo paciente' })).toHaveCount(0)
 })
 
