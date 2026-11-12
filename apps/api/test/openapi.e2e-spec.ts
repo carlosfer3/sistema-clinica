@@ -40,6 +40,7 @@ describe('OpenAPI contract and Swagger UI', () => {
     ['get', '/api/portal/appointments'],
     ['get', '/api/portal/history'],
     ['get', '/api/portal/history-context'],
+    ['get', '/api/portal/biometrics'],
     ['get', '/api/portal/notifications'],
     ['get', '/api/portal/catalog'],
     ['get', '/api/portal/availability'],
@@ -79,12 +80,14 @@ describe('OpenAPI contract and Swagger UI', () => {
     return document.paths[path][method as 'get' | 'post'] as OperationObject;
   }
   it('documents every current endpoint with a summary, tag and response schema', () => {
-    const documented = Object.values(document.paths).flatMap((path) =>
-      ['get', 'post', 'put', 'patch', 'delete'].filter(
-        (method) => method in path,
-      ),
+    const documented = Object.entries(document.paths).flatMap(([url, path]) =>
+      ['get', 'post', 'put', 'patch', 'delete']
+        .filter((method) => method in path)
+        .map((method) => `${method} ${url}`),
     );
-    expect(documented).toHaveLength(endpoints.length);
+    expect(documented.sort()).toEqual(
+      endpoints.map(([method, path]) => `${method} ${path}`).sort(),
+    );
     for (const [method, path] of endpoints) {
       const op = operation(method, path);
       expect(op.summary).toBeTruthy();
